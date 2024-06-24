@@ -1,6 +1,6 @@
-<mxfile host="app.diagrams.net" modified="2024-06-24T17:38:51.836Z" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:127.0) Gecko/20100101 Firefox/127.0" etag="g8x0HuhMIOLZ4OTD4l7w" version="24.6.2" type="github">
+<mxfile host="app.diagrams.net" modified="2024-06-24T17:40:45.214Z" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:127.0) Gecko/20100101 Firefox/127.0" etag="2iTLQZU5jGqMpC9udSq5" version="24.6.2" type="github">
   <diagram name="Page-1" id="qYU9Ulp_ExvP144HwVtU">
-    <mxGraphModel dx="1064" dy="706" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1749" dy="1160" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -77,8 +77,9 @@
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
               <mxPoint x="680" y="350" />
-              <mxPoint x="760" y="350" />
-              <mxPoint x="760" y="420" />
+              <mxPoint x="740" y="350" />
+              <mxPoint x="740" y="420" />
+              <mxPoint x="560" y="420" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -96,22 +97,19 @@
         <mxCell id="a-sUADIVm8qCuhfeS31k-30" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.nat_gateway;" parent="1" vertex="1">
           <mxGeometry x="550" y="570" width="38" height="38" as="geometry" />
         </mxCell>
-        <mxCell id="a-sUADIVm8qCuhfeS31k-33" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" edge="1">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="734" y="420" as="targetPoint" />
-            <mxPoint x="754.0000000000002" y="332.52" as="sourcePoint" />
-            <Array as="points">
-              <mxPoint x="760" y="333" />
-              <mxPoint x="760" y="420" />
-              <mxPoint x="734" y="420" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
         <mxCell id="GHnzKDXzhPETCiCi5l8i-2" value="Private subnet" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;grStroke=0;strokeColor=#00A4A6;fillColor=#E6F6F7;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;dashed=0;" vertex="1" parent="1">
           <mxGeometry x="670" y="550" width="160" height="180" as="geometry" />
         </mxCell>
+        <mxCell id="GHnzKDXzhPETCiCi5l8i-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="a-sUADIVm8qCuhfeS31k-29" target="a-sUADIVm8qCuhfeS31k-30">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="754" y="430" />
+              <mxPoint x="570" y="430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
         <mxCell id="a-sUADIVm8qCuhfeS31k-29" value="Task" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
-          <mxGeometry x="723.5" y="302.52" width="60" height="30" as="geometry" />
+          <mxGeometry x="723.5" y="302.52" width="60" height="27.48" as="geometry" />
         </mxCell>
         <mxCell id="a-sUADIVm8qCuhfeS31k-44" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="a-sUADIVm8qCuhfeS31k-39" target="a-sUADIVm8qCuhfeS31k-42" edge="1">
           <mxGeometry relative="1" as="geometry" />
