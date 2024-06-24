@@ -2,7 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { ProtoMessageTable, Containers, VPC } from "../lib/stackMain";
+import { MessageTable, Containers, VPC } from "../lib/stackMain";
 
 interface EnvProps {
   prod: boolean
@@ -11,7 +11,7 @@ interface EnvProps {
 class Set extends Construct {
   constructor(scope: Construct, id: string, props?: EnvProps) {
     super(scope, id);
-      new ProtoMessageTable(this, "dynamo");
+      new MessageTable(this, "StackMsgTable");
   }
 }
 
