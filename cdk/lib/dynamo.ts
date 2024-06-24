@@ -20,7 +20,7 @@ export class DynamoStack extends cdk.Stack {
       // deletionProtection: true,
       dynamoStream: dynamodb.StreamViewType.NEW_IMAGE,
       encryption: dynamodb.TableEncryptionV2.dynamoOwnedKey(),
-      tableName: "protoMsgTable",
+      tableName: "msgTable",
       removalPolicy: cdk.RemovalPolicy.DESTROY
     })
   }

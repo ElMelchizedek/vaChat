@@ -1,0 +1,17 @@
+{
+  "name": "vachat",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.602.0",
+    "@aws-sdk/client-dynamodb-streams": "^3.600.0",
+    "@aws-sdk/credential-providers": "^3.600.0",
+    "@aws-sdk/lib-dynamodb": "^3.602.0"
+  }
+}
