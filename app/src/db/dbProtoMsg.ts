@@ -26,7 +26,7 @@ const docClient = DynamoDBDocumentClient.from(DBClient);
 async function putFunc() {
     try {
         const command = new PutCommand({
-            TableName: "protoMsgTable",
+            TableName: "msgTable",
             Item: {
                 accountName: "admin",
                 time: Date.now(),
@@ -44,7 +44,7 @@ async function putFunc() {
 async function getStreamFunc() {
     try {
         const command = new ListStreamsCommand({
-            TableName: "protoMsgTable",
+            TableName: "msgTable",
         });
 
         const response = await StreamsClient.send(command);
