@@ -17,5 +17,7 @@ export class CustomLambda extends cdk.Stack {
             handler: "func".concat(props.name, ".handler"),
             code: cdk.aws_lambda.Code.fromAsset(path.join(__dirname, "..", "lambda")),
         })
+
+        this.func = fn;
     }
 }

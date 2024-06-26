@@ -8,6 +8,7 @@ interface SharedCustomProps extends cdk.StackProps {
 interface TopicProps extends SharedCustomProps {
     subscribers?: cdk.aws_sqs.IQueue[]; 
     subscribersParents?: QueueMessage[];
+    fifo: boolean;
 }
 
 interface QueueProps extends SharedCustomProps {
@@ -34,7 +35,7 @@ export class TopicMessage extends cdk.Stack {
         this.topic = new cdk.aws_sns.Topic(this, "idNewTopic", {
             topicName: props.name,
             displayName: prettifyDisplayName(props.name), 
-            fifo: true,
+            fifo: props.fifo,
             // enforceSSL: true,
         });
         

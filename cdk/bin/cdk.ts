@@ -52,6 +52,7 @@ class Set extends Construct {
 			name: "metaTopic",
 			subscribers: topicSubscribers,
 			subscribersParents: topicSubcribersParents,
+			fifo: true,
 		});
 
 		// Set event sources for lambda to the message queues, so that it is properly invoked when messages are sent by users.
@@ -60,15 +61,15 @@ class Set extends Construct {
 		// Per-channel SNS topic to be subscribed to by listening client servers.
 		channelNames.forEach(chosenName => {
 			const topicChannel = new customStack.TopicMessage(this, ("IdTopic".concat(chosenName)), {
-				name: "channelTopic".concat(chosenName)
+				name: "channelTopic".concat(chosenName),
+				fifo: false
 			});
-		
+
+			console.log(process.env.IP);
 			if (process.env.IP) {
-				topicChannel.topic.addSubscription(new cdk.aws_sns_subscriptions.UrlSubscription("http://".concat(process.env.IP, ":3000")));
+				topicChannel.topic.addSubscription(new cdk.aws_sns_subscriptions.UrlSubscription("http://".concat(process.env.IP, ":3000/sns")));
 			}
 		})
-
-
 	}
 }
 
