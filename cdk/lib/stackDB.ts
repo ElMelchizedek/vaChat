@@ -1,33 +1,51 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+
+interface CustomProps extends cdk.StackProps {
+	channelName: string;
+}
 
 // DynamoDB table of message history for channel.
-export class TableMessage extends cdk.Stack {
-	constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+export class TableChannel extends cdk.Stack {
+	public table: cdk.aws_dynamodb.TableV2;
+
+	constructor(scope: Construct, id: string, props?: CustomProps) {
 		super(scope, id, props);
 
-		const table = new dynamodb.TableV2(this, "idMsgTable", {
+		const table = new cdk.aws_dynamodb.TableV2(this, "idMsgTable", {
+			// Account ID
 			partitionKey: {
-				name: "accountName",
-				type: dynamodb.AttributeType.STRING
+				name: "account",
+				type: cdk.aws_dynamodb.AttributeType.NUMBER,
 			},
 			// Uses UNIX epoch
 			sortKey: {
 				name: "time",
-				type: dynamodb.AttributeType.NUMBER
+				type: cdk.aws_dynamodb.AttributeType.NUMBER
 			},
-			billing: dynamodb.Billing.onDemand(),
+
+			globalSecondaryIndexes: [
+				{
+					indexName: "accountContent",
+					partitionKey: {
+						name: "account",
+						type: cdk.aws_dynamodb.AttributeType.NUMBER,
+					},
+					sortKey: {
+						name: "content",
+						type: cdk.aws_dynamodb.AttributeType.STRING,
+					}
+				},
+			],
+
+			billing: cdk.aws_dynamodb.Billing.onDemand(),
 			// deletionProtection: true,
-			dynamoStream: dynamodb.StreamViewType.NEW_IMAGE,
-			encryption: dynamodb.TableEncryptionV2.dynamoOwnedKey(),
-			tableName: "msgTable",
+			dynamoStream: cdk.aws_dynamodb.StreamViewType.NEW_IMAGE,
+			encryption: cdk.aws_dynamodb.TableEncryptionV2.dynamoOwnedKey(),
+			tableName: props?.channelName.concat("Table"),
 			removalPolicy: cdk.RemovalPolicy.DESTROY
-		})
+		});
+
+		this.table = table;
 	}
-}
-
-// DynamoDB table listing information about guilds for application.
-export class TableInfoGuilds extends cdk.Stack {
-
 }

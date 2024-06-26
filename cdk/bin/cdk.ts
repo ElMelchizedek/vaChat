@@ -13,28 +13,47 @@ class Set extends Construct {
 		super(scope, id);
 		// new customStack.MessageTable(this, "StackMsgTable");
 
-		// Channels
+		// Service-agnostic channel variables
+		const channelNames: string[] = ["alpha", "bravo", "charlie"];
+
+		// Channel queues and tables
 		const topicSubscribers: cdk.aws_sqs.IQueue[] = [];
 		const topicSubcribersParents: customStack.QueueMessage[] = [];
-		const queueNames: string[] = ["alpha", "bravo", "charlie"];
 		const queueType: string = "Channel";
 
-		queueNames.forEach(chosenName => {
-			const queueMessage = new customStack.QueueMessage(this, ("id".concat(chosenName)), {
+		// Pre-emptively define lambda that moves channel messages into tables so as to allow it access to said queues and tables.
+		const functionQueueToTable = new customStack.LambdaQueueToTable(this, "IdLambdaQueueToTable", {});
+
+		channelNames.forEach(chosenName => {
+			// Create SQS queues
+			const queueChannel = new customStack.QueueMessage(this, ("IdQueue".concat(chosenName)), {
 				type: queueType,
 				name: "".concat(chosenName.toLowerCase(), queueType, "Queue.fifo"),
 				nickname: chosenName,
 			});
+			// Give queue permissions to lambda mentioned previously.
+			queueChannel.queue.grantConsumeMessages(functionQueueToTable.func);
+			// Assign it to the topic subscribers array.
+			topicSubscribers.push(queueChannel.queue);
+			topicSubcribersParents.push(queueChannel);
 
-			topicSubscribers.push(queueMessage.queue);
-			topicSubcribersParents.push(queueMessage);
+			// Create DynamoDB tables
+			const tableChannel = new customStack.TableChannel(this, ("IdTable".concat(chosenName)), {
+				channelName: chosenName,
+			});
+			// Give table permissions to lambda.
+			tableChannel.table.grantFullAccess(functionQueueToTable.func);
 		});
 
+		// SNS topic which will filter to messages to correct queue.
 		const metaTopic = new customStack.TopicMessage(this, "StackMetaTopic", {
 			name: "metaTopic",
 			subscribers: topicSubscribers,
 			subscribersParents: topicSubcribersParents,
 		});
+
+		// Set event sources for lambda to the message queues, so that it is properly invoked when messages are sent by users.
+		functionQueueToTable.func.addEventSource(new cdk.aws_lambda_event_sources.SqsEventSource(topicSubscribers[0]));
 	}
 }
 
