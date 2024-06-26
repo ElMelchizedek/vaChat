@@ -16,9 +16,17 @@ async function testMsg() {
             Message: "Hello, world!",
             Subject: "Test",
             MessageAttributes: {
-                "guild": {
+                "channel": {
                     DataType: "String",
-                    StringValue: "belfalas"
+                    StringValue: "alpha"
+                },
+                "account": {
+                    DataType: "Number",
+                    StringValue: "1"
+                },
+                "timestamp": {
+                    DataType: "Number",
+                    StringValue: Date.now().toString()
                 }
             },
             MessageGroupId: "testMessageGroup",
