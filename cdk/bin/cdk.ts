@@ -13,15 +13,16 @@ class Set extends Construct {
 		super(scope, id);
 		// new customStack.MessageTable(this, "StackMsgTable");
 
+		// Channels
 		const topicSubscribers: cdk.aws_sqs.IQueue[] = [];
 		const topicSubcribersParents: customStack.QueueMessage[] = [];
-		const queueNames: string[] = ["anorien", "belfalas", "ithilien"];
-		const queueType: string = "Guild";
+		const queueNames: string[] = ["alpha", "bravo", "charlie"];
+		const queueType: string = "Channel";
 
 		queueNames.forEach(chosenName => {
 			const queueMessage = new customStack.QueueMessage(this, ("id".concat(chosenName)), {
 				type: queueType,
-				name: chosenName.concat(queueType, "Queue.fifo"),
+				name: "".concat(chosenName.toLowerCase(), queueType, "Queue.fifo"),
 				nickname: chosenName,
 			});
 
@@ -29,8 +30,8 @@ class Set extends Construct {
 			topicSubcribersParents.push(queueMessage);
 		});
 
-		const newTopic = new customStack.TopicMessage(this, "StackGuildTopic", {
-			name: "guildTopic",
+		const metaTopic = new customStack.TopicMessage(this, "StackMetaTopic", {
+			name: "metaTopic",
 			subscribers: topicSubscribers,
 			subscribersParents: topicSubcribersParents,
 		});

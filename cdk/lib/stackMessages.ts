@@ -42,7 +42,7 @@ export class TopicMessage extends cdk.Stack {
         props.subscribers.forEach((subscriber, index) => {
             newTopic.addSubscription(new cdk.aws_sns_subscriptions.SqsSubscription(subscriber, {
                 filterPolicy: {
-                    guild: cdk.aws_sns.SubscriptionFilter.stringFilter({
+                    channel: cdk.aws_sns.SubscriptionFilter.stringFilter({
                         allowlist: [this.subscribersParents[index].nickname]
                     })
                 }
