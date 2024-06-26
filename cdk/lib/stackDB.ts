@@ -40,12 +40,14 @@ export class TableChannel extends cdk.Stack {
 
 			billing: cdk.aws_dynamodb.Billing.onDemand(),
 			// deletionProtection: true,
-			dynamoStream: cdk.aws_dynamodb.StreamViewType.NEW_IMAGE,
+			dynamoStream: cdk.aws_dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
 			encryption: cdk.aws_dynamodb.TableEncryptionV2.dynamoOwnedKey(),
 			tableName: props?.channelName.concat("Table"),
-			removalPolicy: cdk.RemovalPolicy.DESTROY
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
 		});
 
 		this.table = table;
+
+
 	}
 }

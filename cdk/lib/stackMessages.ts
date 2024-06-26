@@ -6,8 +6,8 @@ interface SharedCustomProps extends cdk.StackProps {
 }
 
 interface TopicProps extends SharedCustomProps {
-    subscribers: cdk.aws_sqs.IQueue[]; 
-    subscribersParents: QueueMessage[];
+    subscribers?: cdk.aws_sqs.IQueue[]; 
+    subscribersParents?: QueueMessage[];
 }
 
 interface QueueProps extends SharedCustomProps {
@@ -26,28 +26,32 @@ function prettifyDisplayName(input: string): string {
 
 export class TopicMessage extends cdk.Stack {
     public subscribersParents: QueueMessage[];
+    public topic: cdk.aws_sns.Topic;
 
     constructor(scope: Construct, id: string, props: TopicProps) {
         super(scope, id, props);
         
-        this.subscribersParents = props.subscribersParents;
-
-        const newTopic = new cdk.aws_sns.Topic(this, "idNewTopic", {
+        this.topic = new cdk.aws_sns.Topic(this, "idNewTopic", {
             topicName: props.name,
             displayName: prettifyDisplayName(props.name), 
             fifo: true,
-            enforceSSL: true,
+            // enforceSSL: true,
         });
+        
+        if (props.subscribers && props.subscribersParents) {
 
-        props.subscribers.forEach((subscriber, index) => {
-            newTopic.addSubscription(new cdk.aws_sns_subscriptions.SqsSubscription(subscriber, {
-                filterPolicy: {
-                    channel: cdk.aws_sns.SubscriptionFilter.stringFilter({
-                        allowlist: [this.subscribersParents[index].nickname]
-                    })
-                }
-            }));
-        })
+            this.subscribersParents = props?.subscribersParents;
+
+            props.subscribers.forEach((subscriber, index) => {
+                this.topic.addSubscription(new cdk.aws_sns_subscriptions.SqsSubscription(subscriber, {
+                    filterPolicy: {
+                        channel: cdk.aws_sns.SubscriptionFilter.stringFilter({
+                            allowlist: [this.subscribersParents[index].nickname],
+                        })
+                    }
+                }));
+            })
+        }
     }
 }
 
@@ -63,7 +67,7 @@ export class QueueMessage extends cdk.Stack {
         this.queue = new cdk.aws_sqs.Queue(this, "idNewQueue", {
             queueName: props.name,
             fifo: true,
-            enforceSSL: true,
+            // enforceSSL: true,
         })
     }
 }

@@ -22,7 +22,9 @@ class Set extends Construct {
 		const queueType: string = "Channel";
 
 		// Pre-emptively define lambda that moves channel messages into tables so as to allow it access to said queues and tables.
-		const functionQueueToTable = new customStack.LambdaQueueToTable(this, "IdLambdaQueueToTable", {});
+		const functionQueueToTable = new customStack.CustomLambda(this, "IdLambdaQueueToTable", {
+			name: "QueueToTable",
+		});
 
 		channelNames.forEach(chosenName => {
 			// Create SQS queues
@@ -45,7 +47,7 @@ class Set extends Construct {
 			tableChannel.table.grantFullAccess(functionQueueToTable.func);
 		});
 
-		// SNS topic which will filter to messages to correct queue.
+		// SNS topic which will filter to messages to correct queue for backend pipeline.
 		const metaTopic = new customStack.TopicMessage(this, "StackMetaTopic", {
 			name: "metaTopic",
 			subscribers: topicSubscribers,
@@ -54,6 +56,19 @@ class Set extends Construct {
 
 		// Set event sources for lambda to the message queues, so that it is properly invoked when messages are sent by users.
 		functionQueueToTable.func.addEventSource(new cdk.aws_lambda_event_sources.SqsEventSource(topicSubscribers[0]));
+
+		// Per-channel SNS topic to be subscribed to by listening client servers.
+		channelNames.forEach(chosenName => {
+			const topicChannel = new customStack.TopicMessage(this, ("IdTopic".concat(chosenName)), {
+				name: "channelTopic".concat(chosenName)
+			});
+		
+			if (process.env.IP) {
+				topicChannel.topic.addSubscription(new cdk.aws_sns_subscriptions.UrlSubscription("http://".concat(process.env.IP, ":3000")));
+			}
+		})
+
+
 	}
 }
 
