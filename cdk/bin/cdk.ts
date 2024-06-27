@@ -2,7 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as customStack from "../../server/stack/stackMain";
+import * as customStack from "../../backend/stack/stackMain";
 // import * as dotenv from "dotenv";
 // import * as path from "path";
 
