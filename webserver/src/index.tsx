@@ -12,7 +12,13 @@ channels.set("other", {listeners: [], history: []})
 // maps session IDs to Client handlers
 const sessions = new Map<string, Client>()
 
-const sns = new SNS({ region: "ap-southeast-2" })
+const sns = new SNS({ 
+    region: "ap-southeast-2",
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
+    }
+})
 
 // user signs in
 // user lands on their homepage
