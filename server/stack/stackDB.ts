@@ -3,13 +3,15 @@ import { Construct } from 'constructs';
 
 interface CustomProps extends cdk.StackProps {
 	channelName: string;
+	correspondFunc: cdk.aws_lambda.Function
 }
 
 // DynamoDB table of message history for channel.
 export class TableChannel extends cdk.Stack {
 	public table: cdk.aws_dynamodb.TableV2;
+	public corespondFunc: cdk.aws_lambda.Function;
 
-	constructor(scope: Construct, id: string, props?: CustomProps) {
+	constructor(scope: Construct, id: string, props: CustomProps) {
 		super(scope, id, props);
 
 		const table = new cdk.aws_dynamodb.TableV2(this, "idMsgTable", {
@@ -47,7 +49,10 @@ export class TableChannel extends cdk.Stack {
 		});
 
 		this.table = table;
+		this.corespondFunc = props.correspondFunc;
 
+		// Grant permissions to LambdaQueueToTable.
+		this.table.grantFullAccess(this.corespondFunc);
 
 	}
 }

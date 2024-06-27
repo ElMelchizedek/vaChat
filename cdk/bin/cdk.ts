@@ -2,7 +2,13 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as customStack from "../lib/stackMain";
+import * as customStack from "../../server/stack/stackMain";
+// import * as dotenv from "dotenv";
+// import * as path from "path";
+
+// dotenv.config({
+// 	path: path.join(__dirname, "..", ".env"),
+// })
 
 interface EnvProps {
 	prod: boolean
@@ -11,7 +17,6 @@ interface EnvProps {
 class Set extends Construct {
 	constructor(scope: Construct, id: string, props?: EnvProps) {
 		super(scope, id);
-		// new customStack.MessageTable(this, "StackMsgTable");
 
 		// Service-agnostic channel variables
 		const channelNames: string[] = ["alpha", "bravo", "charlie"];
@@ -32,9 +37,8 @@ class Set extends Construct {
 				type: queueType,
 				name: "".concat(chosenName.toLowerCase(), queueType, "Queue.fifo"),
 				nickname: chosenName,
+				correspondFunc: functionQueueToTable.func
 			});
-			// Give queue permissions to lambda mentioned previously.
-			queueChannel.queue.grantConsumeMessages(functionQueueToTable.func);
 			// Assign it to the topic subscribers array.
 			topicSubscribers.push(queueChannel.queue);
 			topicSubcribersParents.push(queueChannel);
@@ -42,9 +46,8 @@ class Set extends Construct {
 			// Create DynamoDB tables
 			const tableChannel = new customStack.TableChannel(this, ("IdTable".concat(chosenName)), {
 				channelName: chosenName,
+				correspondFunc: functionQueueToTable.func,
 			});
-			// Give table permissions to lambda.
-			tableChannel.table.grantFullAccess(functionQueueToTable.func);
 		});
 
 		// SNS topic which will filter to messages to correct queue for backend pipeline.
@@ -65,11 +68,16 @@ class Set extends Construct {
 				fifo: false
 			});
 
-			console.log(process.env.IP);
-			if (process.env.IP) {
-				topicChannel.topic.addSubscription(new cdk.aws_sns_subscriptions.UrlSubscription("http://".concat(process.env.IP, ":3000/sns")));
-			}
-		})
+            // Create SSM parameters to store ARNs of aforementioned SNS topics to be used by the clients to subscribe.
+			const topicARN = new customStack.ParamARNChannelTopic(this, ("idParam".concat(chosenName)), {
+				name: chosenName,
+				topic: topicChannel.topic,
+			});
+
+			// param.grantRead(WEB SERVER HERE);
+		});
+
+			
 	}
 }
 
