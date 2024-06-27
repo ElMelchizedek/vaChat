@@ -166,8 +166,9 @@ new Elysia()
 
     .listen(3000)
 
+const protocol = "http"
 await sns.subscribe({
-    Protocol: "http",
-    TopicArn: "arn:aws:sns:ap-southeast-2:471112758277:channelTopicalpha",
-    Endpoint: "http://3.104.219.246:3000/sns"
+    Protocol: protocol,
+    TopicArn: process.env.TOPIC_ARN!,
+    Endpoint: `${protocol}://${process.env.IP}:3000/sns`
 })
