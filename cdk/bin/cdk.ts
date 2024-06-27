@@ -2,7 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as customStack from "../../server/stack/stackMain";
+import * as customStack from "../../backend/stack/stackMain";
 // import * as dotenv from "dotenv";
 // import * as path from "path";
 
@@ -26,10 +26,13 @@ class Set extends Construct {
 		const topicSubcribersParents: customStack.QueueMessage[] = [];
 		const queueType: string = "Channel";
 
-		// Pre-emptively define lambda that moves channel messages into tables so as to allow it access to said queues and tables.
+		// Pre-emptively define lambdas.
 		const functionQueueToTable = new customStack.CustomLambda(this, "IdLambdaQueueToTable", {
 			name: "QueueToTable",
 		});
+		const functionStreamToTopic = new customStack.CustomLambda(this, "IdLambdaStreamToTopic", {
+			name: "StreamToTopic",
+		})
 
 		channelNames.forEach(chosenName => {
 			// Create SQS queues
@@ -43,11 +46,20 @@ class Set extends Construct {
 			topicSubscribers.push(queueChannel.queue);
 			topicSubcribersParents.push(queueChannel);
 
+			// Add topic subscriber as event source to LambdaQueueToMessage.
+			functionQueueToTable.func.addEventSource(new cdk.aws_lambda_event_sources.SqsEventSource(topicSubscribers[topicSubscribers.length - 1]));
+
 			// Create DynamoDB tables
 			const tableChannel = new customStack.TableChannel(this, ("IdTable".concat(chosenName)), {
 				channelName: chosenName,
 				correspondFunc: functionQueueToTable.func,
 			});
+
+			// Add database stream as event source to LambdaStreamToTopic.
+			functionStreamToTopic.func.addEventSource(new cdk.aws_lambda_event_sources.DynamoEventSource(tableChannel.table, {
+				startingPosition: cdk.aws_lambda.StartingPosition.LATEST
+			}));
+
 		});
 
 		// SNS topic which will filter to messages to correct queue for backend pipeline.
@@ -57,9 +69,6 @@ class Set extends Construct {
 			subscribersParents: topicSubcribersParents,
 			fifo: true,
 		});
-
-		// Set event sources for lambda to the message queues, so that it is properly invoked when messages are sent by users.
-		functionQueueToTable.func.addEventSource(new cdk.aws_lambda_event_sources.SqsEventSource(topicSubscribers[0]));
 
 		// Per-channel SNS topic to be subscribed to by listening client servers.
 		channelNames.forEach(chosenName => {
@@ -74,7 +83,7 @@ class Set extends Construct {
 				topic: topicChannel.topic,
 			});
 
-			// param.grantRead(WEB SERVER HERE);
+			// customStack.ParamARNChannelTopic.param.grantFullAccess(WEB CLIENT HERE);
 		});
 
 			
