@@ -26,6 +26,7 @@
     "@aws-sdk/lib-dynamodb": "^3.602.0",
     "aws-cdk-lib": "2.140.0",
     "constructs": "^10.0.0",
+    "dotenv": "^16.4.5",
     "source-map-support": "^0.5.21"
   }
 }

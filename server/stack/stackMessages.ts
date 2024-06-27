@@ -14,6 +14,7 @@ interface TopicProps extends SharedCustomProps {
 interface QueueProps extends SharedCustomProps {
     type: string;
     nickname: string;
+    correspondFunc: cdk.aws_lambda.Function;
 }
 
 function prettifyDisplayName(input: string): string {
@@ -59,16 +60,21 @@ export class TopicMessage extends cdk.Stack {
 export class QueueMessage extends cdk.Stack {
     public readonly queue: cdk.aws_sqs.Queue;
     public readonly nickname: string;
+    public readonly correspondFunc: cdk.aws_lambda.Function;
 
     constructor(scope: Construct, id: string, props: QueueProps) {
         super(scope, id, props);
 
         this.nickname = props.nickname;
+        this.correspondFunc = props.correspondFunc;
 
         this.queue = new cdk.aws_sqs.Queue(this, "idNewQueue", {
             queueName: props.name,
             fifo: true,
             // enforceSSL: true,
         })
+
+        // Give queue permissions to LambdaQueueToTable.
+        this.queue.grantConsumeMessages(this.correspondFunc);
     }
 }

@@ -9,9 +9,11 @@ fi
 # Handle the provided parameter
 case "$1" in
   build)
+    cd cdk
     cdk deploy --profile testing --all --require-approval never
     ;;
   design)
+    cdk cdk
     cdk synth --profile testing --all
     ;;
   *)
