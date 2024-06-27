@@ -3,7 +3,7 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { PutCommand } = require("@aws-sdk/lib-dynamodb");
 
-exports.handler = async (event, context) => {
+exports.handler = async (event)  => {
     // Debug logging.
     console.log("Event\n", JSON.stringify(event), "\n");
     console.log("Context\n", JSON.stringify(event), "\n");
