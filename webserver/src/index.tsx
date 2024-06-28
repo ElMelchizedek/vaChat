@@ -122,7 +122,7 @@ new Elysia()
                     headers: {
                         "Content-Type": "application/json"
                     },
-                    body: JSON.stringify({ message })
+                    body: JSON.stringify({ "channel": "main", "account": "1", "timestamp": "1234567890", message })
                 })
             )
         },
