@@ -159,7 +159,8 @@ new Elysia()
                     break
 
                 default:
-                    console.log("Unknown message type")
+                    // console.log("Unknown message type")
+                    console.log(body)
             }
         }, 
         {
@@ -172,9 +173,9 @@ new Elysia()
 
     .listen(3000)
 
-const protocol = "http"
-await sns.subscribe({
-    Protocol: protocol,
-    TopicArn: process.env.TOPIC_ARN!,
-    Endpoint: `${protocol}://${process.env.IP}:3000/sns`
-})
+// const protocol = "http"
+// await sns.subscribe({
+//     Protocol: protocol,
+//     TopicArn: process.env.TOPIC_ARN!,
+//     Endpoint: `${protocol}://${process.env.IP}:3000/sns`
+// })
