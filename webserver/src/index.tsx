@@ -2,26 +2,27 @@ import { Elysia, t } from 'elysia'
 import { html } from '@elysiajs/html'
 import { Client, Message } from './client'
 
-import { SNS } from "@aws-sdk/client-sns"
 import { fromIni } from "@aws-sdk/credential-providers"
 
+import { SubscriptionConfirmation, Notification } from './snsMessageTypes'
+import { SNS } from "@aws-sdk/client-sns"
 
-// channels' message histories and listeners
-const channels = new Map<string, {listeners: string[], history: string[]}>()
-channels.set("main", {listeners: [], history: []})
-channels.set("other", {listeners: [], history: []})
-
-// maps session IDs to Client handlers
-const sessions = new Map<string, Client>()
+const credentials = fromIni({
+    profile: "harbour",
+    filepath: process.env.HOME + "/.aws/credentials",
+    configFilepath: process.env.HOME + "/.aws/config",
+})
 
 const sns = new SNS({ 
     region: "ap-southeast-2",
-    credentials: fromIni({
-        profile: "harbour",
-        filepath: process.env.HOME + "/.aws/credentials",
-        configFilepath: process.env.HOME + "/.aws/config",
-    })
+    credentials
 })
+
+// channels' message histories and listeners
+const channel: string[] = []
+
+// maps session IDs to Client handlers
+const sessions = new Map<string, Client>()
 
 // user signs in
 // user lands on their homepage
@@ -54,14 +55,15 @@ new Elysia()
                 <body  hx-ext="ws" ws-connect="/ws-main">
                     <h1>Message others</h1>
                     
-                    <select id="channel" name="channel" hx-get="/channels" hx-trigger="change" hx-target="#messages" hx-swap="outerHTML">
+                    {/* <select id="channel" name="channel" hx-get="/channels" hx-trigger="change" hx-target="#messages" hx-swap="outerHTML">
                         <option value="main">Main</option>
                         <option value="other">Other</option>
-                    </select>
+                    </select> */}
 
                     <div id="messages"></div>
-
-                    <form id="write-message" hx-include="#channel" ws-send>
+                    
+                    {/* hx-include="#channel" */}
+                    <form id="write-message" ws-send>
                         <input name="message" />
                     </form>
                 </body>
@@ -69,32 +71,32 @@ new Elysia()
         )
     })
 
-    .get('/channels', 
-        ({ query, cookie }) => {
-            // remove listener from previous channel
-            channels.forEach(channel => {
-                channel.listeners = channel.listeners.filter(listener => listener !== cookie.session.value)
-            })
+    // .get('/channels', 
+    //     ({ query, cookie }) => {
+    //         // remove listener from previous channel
+    //         channels.forEach(channel => {
+    //             channel.listeners = channel.listeners.filter(listener => listener !== cookie.session.value)
+    //         })
 
-            // add listener to new channel
-            channels.get(query.channel)!.listeners.push(cookie.session.value)
+    //         // add listener to new channel
+    //         channels.get(query.channel)!.listeners.push(cookie.session.value)
 
-            return (
-                <div id="messages">
-                    {
-                        channels.get(query.channel)!.history.map(
-                            msg => <Message>{msg}</Message>
-                        )
-                    }
-                </div>
-            )
-        },
-        {
-            query: t.Object({
-                channel: t.String()
-            })
-        }
-    )
+    //         return (
+    //             <div id="messages">
+    //                 {
+    //                     channels.get(query.channel)!.history.map(
+    //                         msg => <Message>{msg}</Message>
+    //                     )
+    //                 }
+    //             </div>
+    //         )
+    //     },
+    //     {
+    //         query: t.Object({
+    //             channel: t.String()
+    //         })
+    //     }
+    // )
 
     .ws('/ws-main', {
         // runs whenever a new WebSocket connection is opened
@@ -104,22 +106,23 @@ new Elysia()
             // setup Client handler for new WebSocket connection
             sessions.set(sessionId, new Client(ws.send))
 
-            // send message history to new session
-            sessions.get(sessionId)!.sendMessage(channels.get("main")!.history)
+            // // send message history to new session
+            // sessions.get(sessionId)!.sendMessage(channels.get("main")!.history)
 
-            channels.get("main")!.listeners.push(sessionId)
+            // channels.get("main")!.listeners.push(sessionId)
         },
 
         // runs every time a message is sent over a WebSocket connection
         message(ws, content) {
-            const { channel, message } = content as { channel: string, message: string }
+            const { message } = content as { message: string }
 
-            // push new message to appropriate channel history
-            channels.get(channel)!.history.push(message)
-
-            // send the message to every session listening to the channel this message was posted to
-            channels.get(channel)!.listeners.forEach(listener => {
-                sessions.get(listener)!.sendMessage(message)
+            // push new message to API gateway, with a POST request
+            fetch("https://d3mcf0vo5h.execute-api.ap-southeast-2.amazonaws.com/sendMessage", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ message })
             })
         },
 
@@ -127,42 +130,48 @@ new Elysia()
         close(ws) {
             // delete session entry for the closed WebSocket
             sessions.delete(ws.data.cookie.session.value)
-
-            // remove the session from all channel listeners
-            channels.forEach(channel => {
-                channel.listeners = channel.listeners.filter(listener => listener !== ws.data.cookie.session.value)
-            })
         }
     })
 
-    .post('/sns', 
-        async ({ body, headers }) => {
+    .post('/sns-ingest', 
+        async ({ headers, body }) => {
             const messageType = headers["x-amz-sns-message-type"]
 
             switch(messageType) {
-                case "SubscriptionConfirmation":
-                    const item = JSON.parse(body) as {
-                        Type: string,
-                        Token: string,
-                        TopicArn: string,
-                        Message: string,
-                        SubscribeUrl: string,
-                        Timestamp: string,
-                        SignatureVersion: string,
-                        Signature: string,
-                        SigningCertURL: string,
-                    }
+                case "SubscriptionConfirmation": {
+                    const message = JSON.parse(body) as SubscriptionConfirmation
         
                     await sns.confirmSubscription({
-                        Token: item.Token!,
-                        TopicArn: item.TopicArn!
+                        Token: message.Token!,
+                        TopicArn: message.TopicArn!
                     })
 
-                    console.log("Subscription confirmed")
                     break
+                }
 
-                default:
-                    console.log("Unknown message type")
+                case "Notification": {
+                    const message = JSON.parse(body) as Notification
+
+                    for(const client of sessions.values()) {
+                        client.sendMessage(
+                            message.MessageAttributes.accountId.Value,
+                            message.Message
+                        )
+                    }
+
+                    break
+                }
+
+                case "UnsubscribeConfirmation": {
+                    console.log("Unsubscribe confirmation received")
+
+                    break
+                }
+
+                default: {
+                    console.log("Unknown message type: ", messageType)
+                    console.log("Message: ", body)
+                }
             }
         }, 
         {
@@ -175,9 +184,8 @@ new Elysia()
 
     .listen(3000)
 
-const protocol = "http"
 await sns.subscribe({
-    Protocol: protocol,
-    TopicArn: process.env.TOPIC_ARN!,
-    Endpoint: `${protocol}://${process.env.IP}:3000/sns`
+    Protocol: "http",
+    TopicArn: process.env.TOPIC_ARN,
+    Endpoint: `http://${process.env.IP}:3000/sns-ingest`
 })

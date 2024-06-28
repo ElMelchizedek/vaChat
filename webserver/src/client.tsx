@@ -1,5 +1,13 @@
-export function Message({ children }: { children: string }) {
-    return <p safe>{children}</p>
+export function Message({ children, accountId }: { children: string, accountId: string}) {
+    return <>
+        <p>
+            <em>{accountId}</em>
+        </p>
+        
+        <p safe>
+            {children}
+        </p>
+    </>
 }
 
 export class Client {
@@ -7,13 +15,23 @@ export class Client {
         this.send = ws_send;
     }
 
-    public async sendMessage(content: string | string[]) {
+    public async sendMessage(accountId: string, content: string | string[]) {
         this.send(await
             <div id="messages" hx-swap-oob="beforeend">
                 {
                     typeof content === 'string'
-                        ? <Message>{content}</Message>
-                        : content.map(msg => <Message>{msg}</Message>)
+                        ? (
+                            <Message {...{accountId}}>
+                                {content}
+                            </Message>
+                        ) : (
+                            content.map(
+                                msg => 
+                                    <Message {...{accountId}}>
+                                        {msg}
+                                    </Message>
+                            )
+                        )
                 }
             </div>
         )
