@@ -12,7 +12,13 @@ channels.set("other", {listeners: [], history: []})
 // maps session IDs to Client handlers
 const sessions = new Map<string, Client>()
 
-const sns = new SNS({ region: "ap-southeast-2" })
+const sns = new SNS({ 
+    region: "ap-southeast-2",
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
+    }
+})
 
 // user signs in
 // user lands on their homepage
@@ -166,8 +172,9 @@ new Elysia()
 
     .listen(3000)
 
+const protocol = "http"
 await sns.subscribe({
-    Protocol: "http",
-    TopicArn: "arn:aws:sns:ap-southeast-2:471112758277:channelTopicalpha",
-    Endpoint: "http://3.104.219.246:3000/sns"
+    Protocol: protocol,
+    TopicArn: process.env.TOPIC_ARN!,
+    Endpoint: `${protocol}://${process.env.IP}:3000/sns`
 })
