@@ -5,6 +5,7 @@ import * as customSQS from "./appIntegration/sqs";
 import * as customDynamoDB from "./database/dynamodb";
 import * as customSNS from "./appIntegration/sns";
 import * as customSSM from "../common/management/ssm";
+import * as customAPI from "./appIntegration/apiGateway";
 
 export class BackendStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -19,6 +20,10 @@ export class BackendStack extends cdk.Stack {
             name: "StreamToTopic",
             scope: this,
         });
+        const functionSendMessage = customLambda.newLambda({
+            name: "SendMessage",
+            scope: this,
+        })
 
         // The ONE queue for testing.
         const queueChannel = customSQS.newChannelQueue({
@@ -49,7 +54,17 @@ export class BackendStack extends cdk.Stack {
             subscriberNicknames: ["Main"],
             fifo: false,
             scope: this,
+            function: functionSendMessage,
         });
+
+        // Make metaTopic's ARN a parameter, to be read by the SendMessage lambda so that it can publish to it.
+        const metaTopicARN = customSSM.newGenericParamTopicARN({
+            name: "MetaTopic",
+            topic: metaTopic,
+            functions: [functionStreamToTopic, functionSendMessage],
+            scope: this,
+            type: "metaTopic",
+        })
 
         // The ONE endpoint SNS topic.
         const topicChannel = customSNS.newEndpointTopic({
@@ -59,12 +74,20 @@ export class BackendStack extends cdk.Stack {
             function: functionStreamToTopic,
         });
 
-        // The ONE SSM ARN endpoint paramter.
-        const topicARN = customSSM.newParamARNChannelTopic({
+        // The ONE SSM ARN endpoint paramater.
+        const channelTopicARN = customSSM.newGenericParamTopicARN({
             name: "Main",
             topic: topicChannel,
-            function: functionStreamToTopic,
+            functions: [functionStreamToTopic, functionSendMessage],
+            scope: this,
+            type: "channelTopic",
+        });
+
+        const {integration, api} = customAPI.newMiddlewareGatewayAPI({
+            name: "WebserverGatewayAPI",
+            function: functionSendMessage,
             scope: this,
         });
+
     }
 }

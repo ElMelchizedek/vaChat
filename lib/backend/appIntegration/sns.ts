@@ -10,6 +10,7 @@ interface props {
 interface metaProps extends props {
     subscribers: cdk.aws_sqs.Queue[];
     subscriberNicknames: string[];
+    function: cdk.aws_lambda.Function;
 }
 
 interface endpointProps extends props {
@@ -46,6 +47,8 @@ export function newMetaTopic(props: metaProps) {
             }
         }));
     });
+    
+    rawTopic.grantPublish(props.function);
 
     return rawTopic;
 }

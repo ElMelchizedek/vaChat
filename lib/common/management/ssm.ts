@@ -5,16 +5,19 @@ interface props {
     scope: Construct;
     name: string;
     topic: cdk.aws_sns.Topic;
-    function: cdk.aws_lambda.Function;
+    functions: cdk.aws_lambda.Function[];
+    type: string;
 }
 
-export function newParamARNChannelTopic(props: props) {
+export function newGenericParamTopicARN(props: props) {
     const param = new cdk.aws_ssm.StringParameter(props.scope, "idParam".concat(props.name), {
-        parameterName: "channelTopic".concat(props.name, "ARN"),
+        parameterName: props.type.concat(props.name, "ARN"),
         stringValue: props.topic.topicArn,
     })
 
-    param.grantRead(props.function);
+    props.functions.forEach((func) => {
+        param.grantRead(func);
+    });
 
     return param;
 }
