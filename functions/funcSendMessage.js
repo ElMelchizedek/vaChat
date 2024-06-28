@@ -1,44 +1,61 @@
-// Recieves raw messages from a channel's SQS queue, and then transforms it before putting it into the corresponding DynamoDB table.
+const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
+const { SSMClient, GetParameterCommand } = require("@aws-sdk/client-ssm");
 
-const { DynamoDBClient, PutItemCommand } = require("@aws-sdk/client-dynamodb");
+const client = new SNSClient({});
 
-exports.handler = async (event)  => {
-    // Debug logging.
-    console.log("Event\n", JSON.stringify(event), "\n");
-    console.log("Context\n", JSON.stringify(event), "\n");
-    
-    const body = JSON.parse(event.Records[0].body);
-    console.log("Body\n", body);
-    console.log("Attributes\n", body.MessageAttributes);
-
-    const messageContent    = body.Message;
-    const messageChannel    = body.MessageAttributes.channel.Value;
-    const messageAccount    = body.MessageAttributes.account.Value;
-    const messageTime       = body.MessageAttributes.timestamp.Value;
-
-    const DBClient = new DynamoDBClient({});
-
+async function sendMsg(messageContents, ARN) {
     try {
-        const command = new PutItemCommand({
-            TableName: messageChannel.concat("Table"),
-            Item: {
-                channel: {
-                    "S": messageChannel
+        const input = {
+            TargetArn: "arn:aws:sns:ap-southeast-2:891377059446:metaTopic",
+            Message: messageContents.message,
+            MessageAttributes: {
+                "channel": {
+                    DataType: "String",
+                    StringValue: messageContents.channel,
                 },
-                account: {
-                    "N": messageAccount
+                "account": {
+                    DataType: "Number",
+                    StringValue: messageContents.account,
                 },
-                time: {
-                    "N": messageTime
-                },
-                content: {
-                    "S": messageContent
+                "timestamp": {
+                    DataType: "Number",
+                    StringValue: messageContents.timestamp,
                 }
-            }
-        });
-        const response = await DBClient.send(command);
-        return response;
+            },
+        }
+        const command = new PublishCommand(input);
+        const response = await client.send(command);
+        console.log(response);
     } catch (error) {
-        console.error("Error executing PutCommand whilst trying to move channel SQS message to corresponding DynamoDB table: ", error);
+        console.error("Error executing PublishCommand", error);
     }
 }
+
+async function getMetaTopicARN(sentChannel) {
+    const clientSSM = new SSMClient({});
+    let paramResponse;
+
+    try {
+        const input = {
+            Name: "metaTopic".concat(sentChannel, "ARN")
+        };
+        const command = new GetParameterCommand(input);
+        paramResponse = await clientSSM.send(command);
+    } catch (error) {
+        console.error("Error executing GetParameterCommand", error);
+    }
+}
+
+exports.handler = async (event) => {
+    const rawContents = JSON.parse(event.body);
+    const contents = {
+        "message": rawContents.message,
+        "channel": rawContents.channel,
+        "account": rawContents.account,
+        "timestamp": rawContents.timestamp,
+    };
+
+    const metaTopicARN = getMetaTopicARN(contents.channel)
+    const response = await sendMsg(contents, metaTopicARN);
+    console.log(response);
+};
