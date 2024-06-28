@@ -4,6 +4,7 @@ import { Construct } from 'constructs';
 interface CustomProps extends cdk.StackProps {
     name: string;
     topic: cdk.aws_sns.Topic;
+    correspondFunc: cdk.aws_lambda.Function;
 }
 
 export class ParamARNChannelTopic extends cdk.Stack {
@@ -14,5 +15,7 @@ export class ParamARNChannelTopic extends cdk.Stack {
             parameterName: "channelTopic".concat(props.name, "ARN"),
             stringValue: props.topic.topicArn,
         })
+
+        param.grantRead(props.correspondFunc);
     }
 }
