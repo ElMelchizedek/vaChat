@@ -1,7 +1,7 @@
 export function Message({ children, accountId }: { children: string, accountId: string}) {
     return <>
-        <p>
-            <em>{accountId}</em>
+        <p style="">
+            {accountId}
         </p>
         
         <p safe>

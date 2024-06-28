@@ -108,6 +108,11 @@ new Elysia()
             
             // setup Client handler for new WebSocket connection
             sessions.set(sessionId, new Client(ws.send))
+
+            // subscribe to user's landing channel
+
+            // send history to afterbegin of messages div
+            // (filter history for messages received via subscription)
         },
 
         // runs every time a message is sent over a WebSocket connection
@@ -146,8 +151,8 @@ new Elysia()
                     const message = JSON.parse(body) as SubscriptionConfirmation
         
                     await sns.confirmSubscription({
-                        Token: message.Token!,
-                        TopicArn: message.TopicArn!
+                        Token: message.Token,
+                        TopicArn: message.TopicArn
                     })
 
                     break
@@ -187,10 +192,10 @@ new Elysia()
         }
     )
 
-    .listen(80)
+    .listen(3000)
 
 await sns.subscribe({
     Protocol: "http",
     TopicArn: process.env.TOPIC_ARN,
-    Endpoint: `http://${process.env.IP}:80/sns-ingest`
+    Endpoint: `http://${process.env.IP}:3000/sns-ingest`
 })
