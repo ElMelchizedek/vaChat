@@ -61,7 +61,7 @@ new Elysia()
                     </select> */}
 
                     <div id="messages"></div>
-                    
+
                     {/* hx-include="#channel" */}
                     <form id="write-message" ws-send>
                         <input name="message" />
@@ -117,7 +117,7 @@ new Elysia()
             const { message } = content as { message: string }
 
             // push new message to API gateway, with a POST request
-            fetch("https://d3mcf0vo5h.execute-api.ap-southeast-2.amazonaws.com/sendMessage", {
+            fetch(process.env.SUBMIT_URL!, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
