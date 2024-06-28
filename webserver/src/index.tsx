@@ -18,9 +18,6 @@ const sns = new SNS({
     credentials
 })
 
-// channels' message histories and listeners
-const channel: string[] = []
-
 // maps session IDs to Client handlers
 const sessions = new Map<string, Client>()
 
@@ -103,28 +100,34 @@ new Elysia()
         open(ws) {
             const sessionId = ws.data.cookie.session.value
 
+            // TODO: sessionId is not unique for individual tabs.
+            // ....: Need to generate a unique ID for each tab.
+            // ....: how get this information to a normal hx get...
+            // ....: can't use a cookie for this
+            // ....: want the id to be secure
+            
             // setup Client handler for new WebSocket connection
             sessions.set(sessionId, new Client(ws.send))
-
-            // // send message history to new session
-            // sessions.get(sessionId)!.sendMessage(channels.get("main")!.history)
-
-            // channels.get("main")!.listeners.push(sessionId)
         },
 
         // runs every time a message is sent over a WebSocket connection
         async message(ws, content) {
             const { message } = content as { message: string }
 
-            // push new message to API gateway, with a POST request
-            console.log(await fetch(process.env.SUBMIT_URL!, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ "channel": "Main", "account": "1", "timestamp": Date.now().toString(), message })
+            // submit new message to backend system via API gateway
+            await fetch(process.env.SUBMIT_URL!, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({ 
+                    "channel": "Main", 
+                    "account": "1", 
+                    "timestamp": Date.now().toString(), 
+                    message 
                 })
-            )
+            })
         },
 
         // runs whenever a WebSocket connection is closed
@@ -142,12 +145,10 @@ new Elysia()
                 case "SubscriptionConfirmation": {
                     const message = JSON.parse(body) as SubscriptionConfirmation
         
-                    console.log(JSON.stringify(await sns.confirmSubscription({
+                    await sns.confirmSubscription({
                         Token: message.Token!,
                         TopicArn: message.TopicArn!
-                    })))
-
-                    console.log("Subscription confirmed")
+                    })
 
                     break
                 }
@@ -155,16 +156,12 @@ new Elysia()
                 case "Notification": {
                     const message = JSON.parse(body) as Notification
 
-                    console.log(JSON.stringify(message))
-
                     for(const client of sessions.values()) {
                         client.sendMessage(
                             message.MessageAttributes.account.Value,
                             message.Message
                         )
                     }
-
-                    console.log("Notification received")
 
                     break
                 }
@@ -182,17 +179,18 @@ new Elysia()
             }
         }, 
         {
-            body: t.String(),
             headers: t.Object({
                 "x-amz-sns-message-type": t.String()
-            })
+            }),
+            
+            body: t.String()
         }
     )
 
-    .listen(3000)
+    .listen(80)
 
 await sns.subscribe({
     Protocol: "http",
     TopicArn: process.env.TOPIC_ARN,
-    Endpoint: `http://${process.env.IP}:3000/sns-ingest`
+    Endpoint: `http://${process.env.IP}:80/sns-ingest`
 })
