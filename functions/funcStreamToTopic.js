@@ -16,7 +16,7 @@ exports.handler = async (event) => {
 	const clientSSM = new SSMClient({});
 	let paramResponse;
 	
-	console.log("test: ", "channelTopic".concat(messageChannel, "ARN"));
+	//console.log("test: ", "channelTopic".concat(messageChannel, "ARN"));
 
 	try {
 		const input = {
@@ -28,7 +28,7 @@ exports.handler = async (event) => {
 		console.error("Error executing GetParameterCommand whilst trying to get parameter describing ARN for topic endpoint to publish stream record to: ", error);
 	}
 	
-	console.log(paramResponse);
+	//console.log(paramResponse);
 
 	// Attempt to publish to channel endpoint topic using its ARN.
 	const clientSNS = new SNSClient({});
