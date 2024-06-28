@@ -142,10 +142,10 @@ new Elysia()
                 case "SubscriptionConfirmation": {
                     const message = JSON.parse(body) as SubscriptionConfirmation
         
-                    await sns.confirmSubscription({
+                    console.log(JSON.stringify(await sns.confirmSubscription({
                         Token: message.Token!,
                         TopicArn: message.TopicArn!
-                    })
+                    })))
 
                     console.log("Subscription confirmed")
 
