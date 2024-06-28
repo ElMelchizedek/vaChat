@@ -113,17 +113,18 @@ new Elysia()
         },
 
         // runs every time a message is sent over a WebSocket connection
-        message(ws, content) {
+        async message(ws, content) {
             const { message } = content as { message: string }
 
             // push new message to API gateway, with a POST request
-            fetch(process.env.SUBMIT_URL!, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ message })
-            })
+            console.log(await fetch(process.env.SUBMIT_URL!, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ message })
+                })
+            )
         },
 
         // runs whenever a WebSocket connection is closed
@@ -146,6 +147,8 @@ new Elysia()
                         TopicArn: message.TopicArn!
                     })
 
+                    console.log("Subscription confirmed")
+
                     break
                 }
 
@@ -158,6 +161,8 @@ new Elysia()
                             message.Message
                         )
                     }
+
+                    console.log("Notification received")
 
                     break
                 }
