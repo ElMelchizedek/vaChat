@@ -43,9 +43,9 @@ export class BackendStack extends cdk.Stack {
         });
 
         // Make the table stream the event source for StreamToTopic.
-        functionStreamToTopic.addEventSource(new cdk.aws_lambda_event_sources.DynamoEventSource(tableChannel, {
-            startingPosition: cdk.aws_lambda.StartingPosition.LATEST,
-        }));
+        // functionStreamToTopic.addEventSource(new cdk.aws_lambda_event_sources.DynamoEventSource(tableChannel, {
+        //     startingPosition: cdk.aws_lambda.StartingPosition.LATEST,
+        // }));
 
         // SNS topic that will filter messages from web server to correct queue for backend pipeline.
         const metaTopic = customSNS.newMetaTopic({
@@ -54,14 +54,14 @@ export class BackendStack extends cdk.Stack {
             subscriberNicknames: ["Main"],
             fifo: false,
             scope: this,
-            function: functionSendMessage,
+            function: functionQueueToTable,
         });
 
         // Make metaTopic's ARN a parameter, to be read by the SendMessage lambda so that it can publish to it.
         const metaTopicARN = customSSM.newGenericParamTopicARN({
             name: "MetaTopic",
             topic: metaTopic,
-            functions: [functionStreamToTopic, functionSendMessage],
+            functions: [functionQueueToTable, functionSendMessage],
             scope: this,
             type: "metaTopic",
         })
@@ -71,14 +71,14 @@ export class BackendStack extends cdk.Stack {
             name: "channelTopicMain",
             fifo: false,
             scope: this,
-            function: functionStreamToTopic,
+            function: functionQueueToTable,
         });
 
         // The ONE SSM ARN endpoint paramater.
         const channelTopicARN = customSSM.newGenericParamTopicARN({
             name: "Main",
             topic: topicChannel,
-            functions: [functionStreamToTopic, functionSendMessage],
+            functions: [functionQueueToTable, functionSendMessage],
             scope: this,
             type: "channelTopic",
         });
