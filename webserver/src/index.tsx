@@ -159,7 +159,7 @@ new Elysia()
 
                     for(const client of sessions.values()) {
                         client.sendMessage(
-                            message.MessageAttributes.accountId.Value,
+                            message.MessageAttributes.account.Value,
                             message.Message
                         )
                     }
