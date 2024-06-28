@@ -23,6 +23,7 @@ exports.handler = async (event)  => {
         const command = new PutCommand({
             TableName: messageChannel.concat("Table"),
             Item: {
+                channel: String(messageChannel),
                 account: Number(messageAccount),
                 time: Number(messageTime),
                 content: String(messageContent),
