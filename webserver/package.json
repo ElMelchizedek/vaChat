@@ -6,7 +6,8 @@
     "dev": "bun run --watch src/index.tsx"
   },
   "dependencies": {
-    "@aws-sdk/client-sns-node": "^0.1.0-preview.2",
+    "@aws-sdk/client-sns": "^3.600.0",
+    "@aws-sdk/credential-providers": "^3.600.0",
     "@elysiajs/html": "^1.0.2",
     "@elysiajs/swagger": "^1.0.5",
     "elysia": "latest"

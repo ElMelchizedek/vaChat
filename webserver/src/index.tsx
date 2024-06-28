@@ -2,7 +2,9 @@ import { Elysia, t } from 'elysia'
 import { html } from '@elysiajs/html'
 import { Client, Message } from './client'
 
-import { SNS } from "@aws-sdk/client-sns-node"
+import { SNS } from "@aws-sdk/client-sns"
+import { fromIni } from "@aws-sdk/credential-providers"
+
 
 // channels' message histories and listeners
 const channels = new Map<string, {listeners: string[], history: string[]}>()
@@ -14,10 +16,11 @@ const sessions = new Map<string, Client>()
 
 const sns = new SNS({ 
     region: "ap-southeast-2",
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
-    }
+    credentials: fromIni({
+        profile: "harbour",
+        filepath: process.env.HOME + "/.aws/credentials",
+        configFilepath: process.env.HOME + "/.aws/config",
+    })
 })
 
 // user signs in
