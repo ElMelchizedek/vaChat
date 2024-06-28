@@ -9,6 +9,7 @@ interface TopicProps extends SharedCustomProps {
     subscribers?: cdk.aws_sqs.IQueue[]; 
     subscribersParents?: QueueMessage[];
     fifo: boolean;
+    correspondFunc?: cdk.aws_lambda.Function;
 }
 
 interface QueueProps extends SharedCustomProps {
@@ -40,6 +41,7 @@ export class TopicMessage extends cdk.Stack {
             // enforceSSL: true,
         });
         
+        // For MetaTopic
         if (props.subscribers && props.subscribersParents) {
 
             this.subscribersParents = props?.subscribersParents;
@@ -53,6 +55,11 @@ export class TopicMessage extends cdk.Stack {
                     }
                 }));
             })
+        }
+
+        // For channel endpoint topic.
+        if (props.correspondFunc) {
+            this.topic.grantPublish(props.correspondFunc);
         }
     }
 }

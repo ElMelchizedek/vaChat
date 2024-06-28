@@ -10,11 +10,11 @@ fi
 case "$1" in
   build)
     cd cdk
-    cdk deploy --profile testing --all --require-approval never
+    cdk deploy --profile harbour --all --require-approval never
     ;;
   design)
     cdk cdk
-    cdk synth --profile testing --all
+    cdk synth --profile harbour --all
     ;;
   *)
     echo "Invalid option: $1"

@@ -74,13 +74,15 @@ class Set extends Construct {
 		channelNames.forEach(chosenName => {
 			const topicChannel = new customStack.TopicMessage(this, ("IdTopic".concat(chosenName)), {
 				name: "channelTopic".concat(chosenName),
-				fifo: false
+				fifo: false,
+				correspondFunc: functionStreamToTopic.func,
 			});
 
             // Create SSM parameters to store ARNs of aforementioned SNS topics to be used by the clients to subscribe.
 			const topicARN = new customStack.ParamARNChannelTopic(this, ("idParam".concat(chosenName)), {
 				name: chosenName,
 				topic: topicChannel.topic,
+				correspondFunc: functionStreamToTopic.func,
 			});
 
 			// customStack.ParamARNChannelTopic.param.grantFullAccess(WEB CLIENT HERE);
