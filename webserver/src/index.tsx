@@ -155,6 +155,8 @@ new Elysia()
                 case "Notification": {
                     const message = JSON.parse(body) as Notification
 
+                    console.log(JSON.stringify(message))
+
                     for(const client of sessions.values()) {
                         client.sendMessage(
                             message.MessageAttributes.accountId.Value,
