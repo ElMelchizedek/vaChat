@@ -57,17 +57,20 @@ new Elysia()
     )
 
     .use(ws(sessions))
+
     .use(
         snsIngest(
             // send message to clients
-            message => 
+            (message) => {
                 sessions.forEach(
-                    client => 
+                    (client) => {
                         client.sendMessage(
                             message.MessageAttributes.account.Value, 
                             message.Message
                         )
+                    }
                 )
+            }
         )
     )
 

@@ -1,11 +1,8 @@
+import { Elysia, t } from 'elysia'
 
-import { credentials } from "./credentials"
 import { SNS } from "@aws-sdk/client-sns"
 
-const sns = new SNS({ 
-    region: "ap-southeast-2",
-    credentials
-})
+import { credentials } from "./credentials"
 
 type SubscriptionConfirmation = {
     Type: string,
@@ -38,11 +35,24 @@ type Notification = {
     }
 }
 
-import { Elysia, t } from 'elysia'
+const sns = new SNS({ 
+    region: "ap-southeast-2",
+    credentials
+})
 
+export const subscribeToChannel = async (channel: string) =>
+    await sns.subscribe({
+        Protocol: "http",
+        TopicArn: channel,
+        Endpoint: `http://${process.env.IP}:3000/sns-ingest`
+    })
+
+
+// TODO: handle message validation from SNS
+// ....: UnsubscribeConfirmation    
 export const snsIngest = async (updateClients: (message: Notification) => void) =>
-    (app: Elysia) => {
-        return app.post(
+    (app: Elysia) =>
+        app.post(
             '/sns-ingest', 
             async ({ headers, body }) => {
                 const messageType = headers["x-amz-sns-message-type"]
@@ -91,11 +101,3 @@ export const snsIngest = async (updateClients: (message: Notification) => void) 
                 body: t.String()
             }
         )
-    }
-
-export const subscribeToChannel = async (channel: string) =>
-    await sns.subscribe({
-        Protocol: "http",
-        TopicArn: channel,
-        Endpoint: `http://${process.env.IP}:3000/sns-ingest`
-    })

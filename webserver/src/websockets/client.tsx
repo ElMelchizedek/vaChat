@@ -26,7 +26,7 @@ export class Client {
                             </Message>
                         ) : (
                             content.map(
-                                msg => 
+                                (msg) => 
                                     <Message {...{accountId}}>
                                         {msg}
                                     </Message>
