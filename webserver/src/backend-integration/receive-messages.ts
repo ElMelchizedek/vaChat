@@ -56,6 +56,8 @@ export const snsIngest = async (updateClients: (message: Notification) => void) 
                             TopicArn: message.TopicArn
                         })
 
+                        console.log("Subscription confirmed")
+
                         break
                     }
 
@@ -63,6 +65,8 @@ export const snsIngest = async (updateClients: (message: Notification) => void) 
                         const message = JSON.parse(body) as Notification
 
                         updateClients(message)
+
+                        console.log("Message received: ", message.Message)
 
                         break
                     }

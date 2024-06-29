@@ -73,4 +73,5 @@ new Elysia()
 
     .listen(3000)
 
-subscribeToChannel(process.env.TOPIC_ARN!)
+console.log("Subscribing to channel")
+console.log(JSON.stringify(await subscribeToChannel(process.env.TOPIC_ARN!)))
