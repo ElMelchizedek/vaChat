@@ -14,6 +14,11 @@ export const submitMessage = async (
                     "Content-Type": "application/json"
                 },
 
-                body: JSON.stringify(message)
+                body: JSON.stringify({ 
+                    "channel": "Main", 
+                    "account": "1", 
+                    "timestamp": Date.now().toString(), 
+                    message 
+                })
             }
         )

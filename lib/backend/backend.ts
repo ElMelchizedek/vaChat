@@ -16,12 +16,12 @@ export class BackendStack extends cdk.Stack {
             name: "QueueToTable",
             scope: this,
         });
-        const functionSendMessage = customLambda.newGoLambda({
-            name: "sendMessage",
-            scope: this,
-        })
-        const functionGetChannel = customLambda.newGoLambda({
-            name: "getChannel",
+        // const functionStreamToTopic = customLambda.newLambda({
+        //     name: "StreamToTopic",
+        //     scope: this,
+        // });
+        const functionSendMessage = customLambda.newLambda({
+            name: "SendMessage",
             scope: this,
         })
 
@@ -35,19 +35,17 @@ export class BackendStack extends cdk.Stack {
         // Make the channel queue the event source for QueueToTable.
         functionQueueToTable.addEventSource(new cdk.aws_lambda_event_sources.SqsEventSource(queueChannel));
 
-        // DynamoDB table for a channel.
-        const tableChannelMain = customDynamoDB.newChannelTable({
+        // The ONE DynamoDB table.
+        const tableChannel = customDynamoDB.newChannelTable({
             name: "Main",
-            function: functionHandleMessageQueue,
+            function: functionQueueToTable,
             scope: this
         });
 
-        // DynamoDB table for info about every channel.
-        const tableMetaChannel = customDynamoDB.newMetaChannelTable({
-            name: "MetaChannelTable",
-            function: functionGetChannel,
-            scope: this,
-        })
+        // Make the table stream the event source for StreamToTopic.
+        // functionStreamToTopic.addEventSource(new cdk.aws_lambda_event_sources.DynamoEventSource(tableChannel, {
+        //     startingPosition: cdk.aws_lambda.StartingPosition.LATEST,
+        // }));
 
         // SNS topic that will filter messages from web server to correct queue for backend pipeline.
         const metaTopic = customSNS.newMetaTopic({
@@ -87,16 +85,7 @@ export class BackendStack extends cdk.Stack {
 
         const {integration, api} = customAPI.newMiddlewareGatewayAPI({
             name: "GatewayWebserverAPI",
-            functions: [
-                {
-                    name: "sendMessage",
-                    function: functionSendMessage,
-                },
-                {
-                    name: "getChannel",
-                    function: functionGetChannel,
-                }
-            ],
+            function: functionSendMessage,
             scope: this,
         });
 

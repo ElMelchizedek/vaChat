@@ -1,11 +1,10 @@
 import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
-import * as aws_go_lambda from "@aws-cdk/aws-lambda-go-alpha";
 
 interface props {
     scope: Construct;
     name: string;
-    function: aws_go_lambda.GoFunction;
+    function: cdk.aws_lambda.Function;
 }
 
 export function newChannelQueue(props: props) {
