@@ -12,7 +12,7 @@ interface props {
 
 export function newGenericParamTopicARN(props: props) {
     const param = new cdk.aws_ssm.StringParameter(props.scope, "idParam".concat(props.name), {
-        parameterName: props.type.concat(props.name, "ARN"),
+        parameterName: (props.type == "metaTopic" ? props.type.concat("ARN") : props.type.concat(props.name, "ARN")),
         stringValue: props.topic.topicArn,
     })
 
