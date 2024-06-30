@@ -77,6 +77,9 @@ func getMetaTopicARN(ctx context.Context, sentChannel string) string {
 }
 
 func handler(ctx context.Context, event json.RawMessage) {
+	// log event
+	log.Printf("Event: %s", event)
+
     var rawContents map[string]interface{}
     json.Unmarshal(event, &rawContents)
 
