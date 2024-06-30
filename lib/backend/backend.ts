@@ -12,40 +12,44 @@ export class BackendStack extends cdk.Stack {
         super(scope, id, props);
         
         // Lambdas.
-        const functionQueueToTable = customLambda.newLambda({
-            name: "QueueToTable",
+        const functionHandleMessageQueue = customLambda.newGoLambda({
+            name: "handleMessageQueue",
             scope: this,
         });
-        const functionStreamToTopic = customLambda.newLambda({
-            name: "StreamToTopic",
+        const functionSendMessage = customLambda.newGoLambda({
+            name: "sendMessage",
             scope: this,
-        });
-        const functionSendMessage = customLambda.newLambda({
-            name: "SendMessage",
+        })
+        const functionGetChannel = customLambda.newGoLambda({
+            name: "getChannel",
             scope: this,
         })
 
         // The ONE queue for testing.
         const queueChannel = customSQS.newChannelQueue({
             name: "Main",
-            function: functionQueueToTable,
+            function: functionHandleMessageQueue,
             scope: this,
         });
         
-        // Make the channel queue the event source for QueueToTable.
-        functionQueueToTable.addEventSource(new cdk.aws_lambda_event_sources.SqsEventSource(queueChannel));
+        // Make the channel queue the event source for HandleMessageQueue.
+        functionHandleMessageQueue.addEventSource(
+            new cdk.aws_lambda_event_sources.SqsEventSource(queueChannel)
+        );
 
-        // The ONE DynamoDB table.
-        const tableChannel = customDynamoDB.newChannelTable({
+        // DynamoDB table for a channel.
+        const tableChannelMain = customDynamoDB.newChannelTable({
             name: "Main",
-            function: functionQueueToTable,
+            function: functionHandleMessageQueue,
             scope: this
         });
 
-        // Make the table stream the event source for StreamToTopic.
-        functionStreamToTopic.addEventSource(new cdk.aws_lambda_event_sources.DynamoEventSource(tableChannel, {
-            startingPosition: cdk.aws_lambda.StartingPosition.LATEST,
-        }));
+        // DynamoDB table for info about every channel.
+        const tableMetaChannel = customDynamoDB.newMetaChannelTable({
+            name: "MetaChannelTable",
+            function: functionGetChannel,
+            scope: this,
+        })
 
         // SNS topic that will filter messages from web server to correct queue for backend pipeline.
         const metaTopic = customSNS.newMetaTopic({
@@ -61,7 +65,7 @@ export class BackendStack extends cdk.Stack {
         const metaTopicARN = customSSM.newGenericParamTopicARN({
             name: "MetaTopic",
             topic: metaTopic,
-            functions: [functionStreamToTopic, functionSendMessage],
+            functions: [functionSendMessage],
             scope: this,
             type: "metaTopic",
         })
@@ -71,21 +75,30 @@ export class BackendStack extends cdk.Stack {
             name: "channelTopicMain",
             fifo: false,
             scope: this,
-            function: functionStreamToTopic,
+            function: functionHandleMessageQueue,
         });
 
-        // The ONE SSM ARN endpoint paramater.
+        // The ONE SNS ARN endpoint paramater.
         const channelTopicARN = customSSM.newGenericParamTopicARN({
             name: "Main",
             topic: topicChannel,
-            functions: [functionStreamToTopic, functionSendMessage],
+            functions: [functionHandleMessageQueue],
             scope: this,
             type: "channelTopic",
         });
 
         const {integration, api} = customAPI.newMiddlewareGatewayAPI({
-            name: "WebserverGatewayAPI",
-            function: functionSendMessage,
+            name: "GatewayWebserverAPI",
+            functions: [
+                {
+                    name: "sendMessage",
+                    function: functionSendMessage,
+                },
+                {
+                    name: "getChannel",
+                    function: functionGetChannel,
+                }
+            ],
             scope: this,
         });
 
