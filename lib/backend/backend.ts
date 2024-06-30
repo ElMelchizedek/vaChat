@@ -16,10 +16,6 @@ export class BackendStack extends cdk.Stack {
             name: "QueueToTable",
             scope: this,
         });
-        // const functionStreamToTopic = customLambda.newLambda({
-        //     name: "StreamToTopic",
-        //     scope: this,
-        // });
         const functionSendMessage = customLambda.newLambda({
             name: "SendMessage",
             scope: this,
