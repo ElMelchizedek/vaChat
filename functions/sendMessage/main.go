@@ -87,7 +87,7 @@ func handler(ctx context.Context, event json.RawMessage) {
 	log.Printf("Event Object: %s", eventObj)
 
 	var body map[string]interface{}
-	json.Unmarshal(event, &body)
+	json.Unmarshal(eventObj["body"].([]byte), &body)
 
 	log.Printf("Body: %s", body)
 
