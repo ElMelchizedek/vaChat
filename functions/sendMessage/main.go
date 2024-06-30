@@ -80,17 +80,22 @@ func handler(ctx context.Context, event json.RawMessage) {
 	// log event
 	log.Printf("Event: %s", event)
 
-    var rawContents map[string]interface{}
-    json.Unmarshal(event, &rawContents)
+    var eventObj map[string]interface{}
+    json.Unmarshal(event, &eventObj)
 
 	// log rawContents
-	log.Printf("Raw Contents: %s", rawContents)
+	log.Printf("Event Object: %s", eventObj)
+
+	var body map[string]interface{}
+	json.Unmarshal(event, &body)
+
+	log.Printf("Body: %s", body)
 
     contents := MessageContents{
-        Message:   rawContents["message"].(string),
-        Channel:   rawContents["channel"].(string),
-        Account:   rawContents["account"].(string),
-        Timestamp: rawContents["timestamp"].(string),
+        Message:   body["message"].(string),
+        Channel:   body["channel"].(string),
+        Account:   body["account"].(string),
+        Timestamp: body["timestamp"].(string),
     }
 
     metaTopicARN := getMetaTopicARN(ctx, contents.Channel)
