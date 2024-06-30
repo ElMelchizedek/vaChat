@@ -1,3 +1,5 @@
+// Writted by Brendan Arnold
+
 package main
 
 import (
