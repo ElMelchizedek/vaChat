@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -63,7 +62,7 @@ func getMetaTopicARN(ctx context.Context) string {
 	}
 	client := ssm.NewFromConfig(cfg)
 
-	paramName := fmt.Sprintf("metaTopicARN")
+	paramName := "metaTopicARN"
 	input := &ssm.GetParameterInput{
 		Name: &paramName,
 	}
