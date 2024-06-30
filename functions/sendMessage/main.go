@@ -83,6 +83,9 @@ func handler(ctx context.Context, event json.RawMessage) {
     var rawContents map[string]interface{}
     json.Unmarshal(event, &rawContents)
 
+	// log rawContents
+	log.Printf("Raw Contents: %s", rawContents)
+
     contents := MessageContents{
         Message:   rawContents["message"].(string),
         Channel:   rawContents["channel"].(string),
