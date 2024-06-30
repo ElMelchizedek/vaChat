@@ -1,10 +1,11 @@
 import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
+import * as aws_go_lambda from "@aws-cdk/aws-lambda-go-alpha";
 
 interface props {
     scope: Construct;
     name: string;
-    function: cdk.aws_lambda.Function;
+    function: aws_go_lambda.GoFunction;
 }
 
 // TODO: Write newTableGeneric which handles all the codeb below definitions for keys and indexes (as I doubt any table would need them to be different).
