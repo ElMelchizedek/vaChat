@@ -40,12 +40,12 @@ export class BackendStack extends cdk.Stack {
         // DynamoDB table for a channel.
         const tableChannelMain = customDynamoDB.newChannelTable({
             name: "Main",
-            function: functionSendMessage,
+            function: functionHandleMessageQueue,
             scope: this
         });
 
         // DynamoDB table for info about every channel.
-        const tableMetaChannel = customDynamoDB.newChannelTable({
+        const tableMetaChannel = customDynamoDB.newMetaChannelTable({
             name: "MetaChannelTable",
             function: functionGetChannel,
             scope: this,
