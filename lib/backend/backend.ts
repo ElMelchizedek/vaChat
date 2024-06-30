@@ -16,10 +16,10 @@ export class BackendStack extends cdk.Stack {
             name: "QueueToTable",
             scope: this,
         });
-        const functionStreamToTopic = customLambda.newLambda({
-            name: "StreamToTopic",
-            scope: this,
-        });
+        // const functionStreamToTopic = customLambda.newLambda({
+        //     name: "StreamToTopic",
+        //     scope: this,
+        // });
         const functionSendMessage = customLambda.newLambda({
             name: "SendMessage",
             scope: this,
@@ -54,14 +54,14 @@ export class BackendStack extends cdk.Stack {
             subscriberNicknames: ["Main"],
             fifo: false,
             scope: this,
-            function: functionQueueToTable,
+            function: functionSendMessage,
         });
 
         // Make metaTopic's ARN a parameter, to be read by the SendMessage lambda so that it can publish to it.
         const metaTopicARN = customSSM.newGenericParamTopicARN({
             name: "MetaTopic",
             topic: metaTopic,
-            functions: [functionQueueToTable, functionSendMessage],
+            functions: [functionSendMessage],
             scope: this,
             type: "metaTopic",
         })
@@ -74,17 +74,17 @@ export class BackendStack extends cdk.Stack {
             function: functionQueueToTable,
         });
 
-        // The ONE SSM ARN endpoint paramater.
+        // The ONE SNS ARN endpoint paramater.
         const channelTopicARN = customSSM.newGenericParamTopicARN({
             name: "Main",
             topic: topicChannel,
-            functions: [functionQueueToTable, functionSendMessage],
+            functions: [functionQueueToTable],
             scope: this,
             type: "channelTopic",
         });
 
         const {integration, api} = customAPI.newMiddlewareGatewayAPI({
-            name: "WebserverGatewayAPI",
+            name: "GatewayWebserverAPI",
             function: functionSendMessage,
             scope: this,
         });

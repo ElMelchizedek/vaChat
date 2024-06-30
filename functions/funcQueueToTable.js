@@ -55,7 +55,6 @@ async function sendToTopic(body) {
 	} catch (error) {
 		console.error("Error executing PublishCommand whilst trying to push parsed stream record to channel endpoint topic: ", error);
 	}
-
 }
 
 exports.handler = async (event)  => {
@@ -94,7 +93,8 @@ exports.handler = async (event)  => {
             }
         });
         const response = await DBClient.send(command);
-        return response;
+        // return response;
+        console.log("DynamoDB\n", response);
     } catch (error) {
         console.error("Error executing PutCommand whilst trying to move channel SQS message to corresponding DynamoDB table: ", error);
     }
