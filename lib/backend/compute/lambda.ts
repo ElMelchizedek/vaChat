@@ -1,7 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as path from "path";
-import * as aws_go_lambda from "@aws-cdk/aws-lambda-go-alpha";
 
 interface props {
     scope: Construct;
@@ -15,14 +14,3 @@ export function newLambda(props: props) {
         code: cdk.aws_lambda.Code.fromAsset(path.join(__dirname, "..", "..", "..", "functions")),
     });
 }
-
-export function newGoLambda(props: props) {
-    return new aws_go_lambda.GoFunction(props.scope, "id".concat(props.name, "GoLambdaFunction"), {
-        entry: path.join(__dirname, "..", "..", "..", "functions", props.name),
-        bundling: {
-            goBuildFlags: [
-              '-ldflags="-s -w"'
-            ]
-          }
-    });
-}   

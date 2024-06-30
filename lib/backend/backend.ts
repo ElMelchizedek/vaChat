@@ -12,35 +12,33 @@ export class BackendStack extends cdk.Stack {
         super(scope, id, props);
         
         // Lambdas.
-        const functionHandleMessageQueue = customLambda.newGoLambda({
-            name: "handleMessageQueue",
+        const functionQueueToTable = customLambda.newLambda({
+            name: "QueueToTable",
             scope: this,
         });
         // const functionStreamToTopic = customLambda.newLambda({
         //     name: "StreamToTopic",
         //     scope: this,
         // });
-        const functionSendMessage = customLambda.newGoLambda({
-            name: "sendMessage",
+        const functionSendMessage = customLambda.newLambda({
+            name: "SendMessage",
             scope: this,
         })
 
         // The ONE queue for testing.
         const queueChannel = customSQS.newChannelQueue({
             name: "Main",
-            function: functionHandleMessageQueue,
+            function: functionQueueToTable,
             scope: this,
         });
         
-        // Make the channel queue the event source for HandleMessageQueue.
-        functionHandleMessageQueue.addEventSource(
-            new cdk.aws_lambda_event_sources.SqsEventSource(queueChannel)
-        );
+        // Make the channel queue the event source for QueueToTable.
+        functionQueueToTable.addEventSource(new cdk.aws_lambda_event_sources.SqsEventSource(queueChannel));
 
         // The ONE DynamoDB table.
         const tableChannel = customDynamoDB.newChannelTable({
             name: "Main",
-            function: functionSendMessage,
+            function: functionQueueToTable,
             scope: this
         });
 
@@ -73,14 +71,14 @@ export class BackendStack extends cdk.Stack {
             name: "channelTopicMain",
             fifo: false,
             scope: this,
-            function: functionHandleMessageQueue,
+            function: functionQueueToTable,
         });
 
         // The ONE SNS ARN endpoint paramater.
         const channelTopicARN = customSSM.newGenericParamTopicARN({
             name: "Main",
             topic: topicChannel,
-            functions: [functionHandleMessageQueue],
+            functions: [functionQueueToTable],
             scope: this,
             type: "channelTopic",
         });
