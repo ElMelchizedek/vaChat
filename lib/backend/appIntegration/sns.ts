@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
+import * as aws_go_lambda from "@aws-cdk/aws-lambda-go-alpha";
 
 interface props {
     scope: Construct;
@@ -10,7 +11,7 @@ interface props {
 interface metaProps extends props {
     subscribers: cdk.aws_sqs.Queue[];
     subscriberNicknames: string[];
-    function: cdk.aws_lambda.Function;
+    function: aws_go_lambda.GoFunction;
 }
 
 interface endpointProps extends props {
