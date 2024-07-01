@@ -5,13 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	dynamodbTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/aws/aws-sdk-go-v2/service/sns"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	sqsTypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 func printStructContents[T any](selectStruct T) {
@@ -49,84 +53,151 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to initialise SDK with default configuration: %v", err)
 	}
 
+	// TABLE
+	var dynamoClient *dynamodb.Client = dynamodb.NewFromConfig(cfg)
+
 	// Create new channel's table.
 	var createTableInput *dynamodb.CreateTableInput = &dynamodb.CreateTableInput{
-		AttributeDefinitions: []types.AttributeDefinition{
+		AttributeDefinitions: []dynamodbTypes.AttributeDefinition{
 			// TODO: Add IDs as primary key instead of names.
 			{
 				AttributeName: aws.String("Account"),
-				AttributeType: types.ScalarAttributeTypeN,
+				AttributeType: dynamodbTypes.ScalarAttributeTypeN,
 			},
 			{
 				AttributeName: aws.String("Time"),
-				AttributeType: types.ScalarAttributeTypeN,
+				AttributeType: dynamodbTypes.ScalarAttributeTypeN,
 			},
 			{
 				AttributeName: aws.String("Content"),
-				AttributeType: types.ScalarAttributeTypeS,
+				AttributeType: dynamodbTypes.ScalarAttributeTypeS,
 			},
 		},
-		KeySchema: []types.KeySchemaElement{
+		KeySchema: []dynamodbTypes.KeySchemaElement{
 			{
 				AttributeName: aws.String("Account"),
-				KeyType:       types.KeyTypeHash,
+				KeyType:       dynamodbTypes.KeyTypeHash,
 			},
 			{
 				AttributeName: aws.String("Time"),
-				KeyType:       types.KeyTypeRange,
+				KeyType:       dynamodbTypes.KeyTypeRange,
 			},
 		},
-		GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
+		GlobalSecondaryIndexes: []dynamodbTypes.GlobalSecondaryIndex{
 			{
 				IndexName: aws.String("AccountContent"),
-				KeySchema: []types.KeySchemaElement{
+				KeySchema: []dynamodbTypes.KeySchemaElement{
 					{
 						AttributeName: aws.String("Account"),
-						KeyType:       types.KeyTypeHash,
+						KeyType:       dynamodbTypes.KeyTypeHash,
 					},
 					{
 						AttributeName: aws.String("Content"),
-						KeyType:       types.KeyTypeRange,
+						KeyType:       dynamodbTypes.KeyTypeRange,
 					},
 				},
-				Projection: &types.Projection{
+				Projection: &dynamodbTypes.Projection{
 					NonKeyAttributes: []string{
 						"Time",
 					},
-					ProjectionType: types.ProjectionTypeAll,
+					ProjectionType: dynamodbTypes.ProjectionTypeAll,
 				},
 			},
 		},
 	}
 
-	var client *dynamodb.Client = dynamodb.NewFromConfig(cfg)
-
-	createTableResult, err := client.CreateTable(ctx, createTableInput)
+	createTableResult, err := dynamoClient.CreateTable(ctx, createTableInput)
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to create new channel's table: %v", err)
 	}
 	fmt.Printf("createTableResult\n %v", createTableResult)
 
-	// Put the new channel's table's name and ARN into MetaChannelTable.
-	var putItemNameARNMetaTableInput *dynamodb.PutItemInput = &dynamodb.PutItemInput{
+	// QUEUE
+	var sqsClient *sqs.Client = sqs.NewFromConfig(cfg)
+
+	// Create SQS queue for new channel.
+	var createQueueInput *sqs.CreateQueueInput = &sqs.CreateQueueInput{
+		QueueName: aws.String(choiceName + "Channel" + "Queue"),
+	}
+
+	createQueueResult, err := sqsClient.CreateQueue(ctx, createQueueInput)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to create queue for new channel: %v", err)
+	}
+	fmt.Printf("createQueueResult\n %v", createQueueResult)
+
+	// Get new queue's ARN
+	var getQueueARNInput *sqs.GetQueueAttributesInput = &sqs.GetQueueAttributesInput{
+		AttributeNames: []sqsTypes.QueueAttributeName{
+			"QueueArn",
+		},
+	}
+
+	getQueueARNResult, err := sqsClient.GetQueueAttributes(ctx, getQueueARNInput)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to get new channe's queue's ARN: %v", err)
+	}
+	fmt.Printf("getQueueARNResult\n %v", getQueueARNResult)
+
+	// TOPICS
+	var snsClient *sns.Client = sns.NewFromConfig(cfg)
+
+	// Get MetaTopic's ARN
+	var listTopicsInput *sns.ListTopicsInput = &sns.ListTopicsInput{}
+
+	listTopicsResult, err := snsClient.ListTopics(ctx, listTopicsInput)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to list sns topics: %v", err)
+	}
+	fmt.Printf("listTopicsResult\n %v", listTopicsResult)
+
+	var metaTopicARN string
+	for _, topic := range listTopicsResult.Topics {
+		if strings.Contains(*topic.TopicArn, "metaTopic") {
+			metaTopicARN = *topic.TopicArn
+			break
+		}
+	}
+
+	if metaTopicARN == "" {
+		fmt.Println("Failed to find metaTopic's ARN.")
+		return events.APIGatewayProxyResponse{}, nil
+	}
+
+	// Subscribes the newly created queue to MetaTopic
+	var subscribeQueueInput *sns.SubscribeInput = &sns.SubscribeInput{
+		Endpoint: aws.String(getQueueARNResult.Attributes["QueueArn"]),
+		TopicArn: aws.String(metaTopicARN),
+		Protocol: aws.String("sqs"),
+	}
+
+	subscribeQueueResult, err := snsClient.Subscribe(ctx, subscribeQueueInput)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to subscrine new channel's queue to metaTopic: %v", err)
+	}
+	fmt.Printf("subscribeQueueResult\n %v", subscribeQueueResult)
+
+	// Add channel's complete info for all service into the meta channel info table.
+	var putItemChannelInfoInput *dynamodb.PutItemInput = &dynamodb.PutItemInput{
 		TableName: aws.String("MetaChannelTable"),
-		Item: map[string]types.AttributeValue{
-			"Name": &types.AttributeValueMemberS{
+		Item: map[string]dynamodbTypes.AttributeValue{
+			"Name": &dynamodbTypes.AttributeValueMemberS{
 				Value: choiceName,
 			},
-			"ARN": &types.AttributeValueMemberS{
+			"TableARN": &dynamodbTypes.AttributeValueMemberS{
 				Value: *createTableResult.TableDescription.TableArn,
+			},
+			"QueueARN": &dynamodbTypes.AttributeValueMemberS{
+				Value: getQueueARNResult.Attributes["QueueArn"],
 			},
 		},
 	}
 
-	putItemNameARNMetaTableResult, err := client.PutItem(ctx, putItemNameARNMetaTableInput)
+	putItemChannelInfoResult, err := dynamoClient.PutItem(ctx, putItemChannelInfoInput)
 	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to put new channel's name and ARN into meta info table: %v", err)
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to put new channel's complete info into meta info table")
 	}
-	fmt.Printf("putItemNameARNMetaTableResult\n %v", putItemNameARNMetaTableResult)
-
-	//
+	fmt.Printf("putItemChannelInfoResult\n %v", putItemChannelInfoResult)
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,

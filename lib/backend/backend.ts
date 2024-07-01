@@ -41,12 +41,12 @@ export class BackendStack extends cdk.Stack {
             new cdk.aws_lambda_event_sources.SqsEventSource(queueChannel)
         );
 
-        // DynamoDB table for a channel.
-        const tableChannelMain = customDynamoDB.newChannelTable({
-            name: "Main",
-            function: functionHandleMessageQueue,
-            scope: this
-        });
+        // // DynamoDB table for a channel.
+        // const tableChannelMain = customDynamoDB.newChannelTable({
+        //     name: "Main",
+        //     function: functionHandleMessageQueue,
+        //     scope: this
+        // });
 
         // DynamoDB table for info about every channel.
         const tableMetaChannel = customDynamoDB.newMetaChannelTable({
