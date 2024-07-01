@@ -32,7 +32,7 @@ export function newMiddlewareGatewayAPI(props: Props): {
     });
     newAPI.addRoutes({
             path: "/getChannel",
-            methods: [cdk.aws_apigatewayv2.HttpMethod.POST],
+            methods: [cdk.aws_apigatewayv2.HttpMethod.GET],
             integration: integrationGetChannelLambda,
     });
 
