@@ -38,16 +38,16 @@ export class BackendStack extends cdk.Stack {
         // })
 
         // The ONE queue for testing.
-        const queueChannel = customSQS.newChannelQueue({
-            name: "Main",
-            function: functionHandleMessageQueue,
-            scope: this,
-        });
+        // const queueChannel = customSQS.newChannelQueue({
+        //     name: "Main",
+        //     function: functionHandleMessageQueue,
+        //     scope: this,
+        // });
         
         // Make the channel queue the event source for HandleMessageQueue.
-        functionHandleMessageQueue.addEventSource(
-            new cdk.aws_lambda_event_sources.SqsEventSource(queueChannel)
-        );
+        // functionHandleMessageQueue.addEventSource(
+        //     new cdk.aws_lambda_event_sources.SqsEventSource(queueChannel)
+        // );
 
         // // DynamoDB table for a channel.
         // const tableChannelMain = customDynamoDB.newChannelTable({
@@ -66,8 +66,8 @@ export class BackendStack extends cdk.Stack {
         // SNS topic that will filter messages from web server to correct queue for backend pipeline.
         const metaTopic = customSNS.newMetaTopic({
             name: "metaTopic",
-            subscribers: [queueChannel],
-            subscriberNicknames: ["Main"],
+            // subscribers: [queueChannel],
+            // subscriberNicknames: ["Main"],
             fifo: false,
             scope: this,
             function: functionSendMessage,

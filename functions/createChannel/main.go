@@ -60,6 +60,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 
 	// Create new channel's table.
 	var createTableInput *dynamodb.CreateTableInput = &dynamodb.CreateTableInput{
+		TableName: aws.String(choiceName + "Table"),
 		AttributeDefinitions: []dynamodbTypes.AttributeDefinition{
 			// TODO: Add IDs as primary key instead of names.
 			{

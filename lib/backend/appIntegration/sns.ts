@@ -9,14 +9,14 @@ interface props {
 }
 
 interface metaProps extends props {
-    subscribers: cdk.aws_sqs.Queue[];
-    subscriberNicknames: string[];
+    // subscribers: cdk.aws_sqs.Queue[];
+    // subscriberNicknames: string[];
     function: aws_go_lambda.GoFunction;
 }
 
-interface endpointProps extends props {
-    function: cdk.aws_lambda.Function;
-}
+// interface endpointProps extends props {
+//     function: cdk.aws_lambda.Function;
+// }
 
 function prettifyDisplayName(input: string): string {
     // Split string based on capital letters.
@@ -39,25 +39,25 @@ function newTopic(props: props) {
 export function newMetaTopic(props: metaProps) {
     const rawTopic = newTopic(props);
 
-    props.subscribers.forEach((subscriber, index) => {
-        rawTopic.addSubscription(new cdk.aws_sns_subscriptions.SqsSubscription(subscriber, {
-            filterPolicy: {
-                channel: cdk.aws_sns.SubscriptionFilter.stringFilter({
-                    allowlist: [props.subscriberNicknames[index]],
-                })
-            }
-        }));
-    });
+    // props.subscribers.forEach((subscriber, index) => {
+    //     rawTopic.addSubscription(new cdk.aws_sns_subscriptions.SqsSubscription(subscriber, {
+    //         filterPolicy: {
+    //             channel: cdk.aws_sns.SubscriptionFilter.stringFilter({
+    //                 allowlist: [props.subscriberNicknames[index]],
+    //             })
+    //         }
+    //     }));
+    // });
     
     rawTopic.grantPublish(props.function);
 
     return rawTopic;
 }
 
-export function newEndpointTopic(props: endpointProps) {
-    const rawTopic = newTopic(props);
+// export function newEndpointTopic(props: endpointProps) {
+//     const rawTopic = newTopic(props);
 
-    rawTopic.grantPublish(props.function);
+//     rawTopic.grantPublish(props.function);
 
-    return rawTopic;
-}
+//     return rawTopic;
+// }
