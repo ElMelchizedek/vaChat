@@ -30,12 +30,12 @@ export class BackendStack extends cdk.Stack {
         })
 
         // Create parameter for functionHandleMessageQueue's ARN, for use in functionCreateChannel to set up the backend message loop.
-        const paramHandleMessageQueueARN = customSSM.newGenericParamLambdaARN({
-            name: "handleMessageQueue",
-            lambda: functionHandleMessageQueue,
-            functions: [functionCreateChannel],
-            scope: this,
-        })
+        // const paramHandleMessageQueueARN = customSSM.newGenericParamLambdaARN({
+        //     name: "handleMessageQueue",
+        //     lambda: functionHandleMessageQueue,
+        //     functions: [functionCreateChannel],
+        //     scope: this,
+        // })
 
         // The ONE queue for testing.
         const queueChannel = customSQS.newChannelQueue({

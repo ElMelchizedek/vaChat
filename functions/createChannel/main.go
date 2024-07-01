@@ -8,11 +8,12 @@ import (
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
+	invokedLambda "github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodbTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	lambda "github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	sqsTypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
@@ -237,6 +238,22 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	}
 	fmt.Printf("setTopicAttributesEndpointTopicResult\n %v", setTopicAttributesEndpointTopicResult)
 
+	// LAMBDA
+	var lambdaClient *lambda.Client = lambda.New(lambda.Options{
+		Region: "ap-southeast-2",
+	})
+	// Make the newly created channel's queue an event source for the lambda handleMessageQueue.
+	var addEventSourceQueueInput *lambda.CreateEventSourceMappingInput = &lambda.CreateEventSourceMappingInput{
+		EventSourceArn: aws.String(getQueueARNResult.Attributes["QueueArn"]),
+		FunctionName:   getParameterHandleMessageQueueARNResult.Parameter.ARN,
+	}
+
+	addEventSourceQueueResult, err := lambdaClient.CreateEventSourceMapping(ctx, addEventSourceQueueInput)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to add new channel's queue as an event source to the lambda handleMessageQueue: %v", err)
+	}
+	fmt.Printf("addEventSourceQueueResult\n %v", addEventSourceQueueResult)
+
 	// ENDING
 
 	// Add channel's complete info for all service into the meta channel info table.
@@ -286,5 +303,5 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 }
 
 func main() {
-	lambda.Start(handleCreateChannelRequest)
+	invokedLambda.Start(handleCreateChannelRequest)
 }
