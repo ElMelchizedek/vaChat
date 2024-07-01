@@ -72,6 +72,21 @@ export class BackendStack extends cdk.Stack {
             resources: ['*'],
         });
         functionGetChannel.addToRolePolicy(permissionsGetChannel);
+
+        const permissionsHandleMessageQueue = new cdk.aws_iam.PolicyStatement({
+            actions: [
+                // SSM
+                'ssm:GetParameter',
+                'ssm:GetParameters',
+                'ssm:GetParametersByPath',
+                // SNS
+                'sns:Publish',
+                // DynamoDB
+                'dynamodb:PutItem',
+            ],
+            resources: ['*'],
+        });
+        functionHandleMessageQueue.addToRolePolicy(permissionsHandleMessageQueue);
                 
 
         // DynamoDB table for info about every channel.
