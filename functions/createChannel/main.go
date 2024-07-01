@@ -107,6 +107,10 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 				},
 			},
 		},
+		BillingMode: dynamodbTypes.BillingModePayPerRequest,
+		StreamSpecification: &dynamodbTypes.StreamSpecification{
+			StreamViewType: dynamodbTypes.StreamViewTypeNewAndOldImages,
+		},
 	}
 
 	createTableResult, err := dynamoClient.CreateTable(ctx, createTableInput)
