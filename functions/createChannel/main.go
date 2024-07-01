@@ -237,6 +237,8 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	}
 	fmt.Printf("setTopicAttributesEndpointTopicResult\n %v", setTopicAttributesEndpointTopicResult)
 
+	// ENDING
+
 	// Add channel's complete info for all service into the meta channel info table.
 	var putItemChannelInfoInput *dynamodb.PutItemInput = &dynamodb.PutItemInput{
 		TableName: aws.String("MetaChannelTable"),
@@ -256,6 +258,21 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 		},
 	}
 
+	// Send a JSON body for the return response from API Gateway to the client webserver with any potentially desired information about the newly created channel.
+
+	rawReturnBody := map[string]interface{}{
+		"Name":             choiceName,
+		"TableARN":         createTableResult.TableDescription.TableArn,
+		"QueueARN":         getQueueARNResult.Attributes["QueueArn"],
+		"EndpointTopicARN": createEndpointTopicResult.TopicArn,
+	}
+
+	cleanReturnBody, err := json.Marshal(rawReturnBody)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to marshal JSON version of return body response: %v", err)
+	}
+	fmt.Printf("cleanReturnBody\n %v", cleanReturnBody)
+
 	putItemChannelInfoResult, err := dynamoClient.PutItem(ctx, putItemChannelInfoInput)
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to put new channel's complete info into meta info table")
@@ -264,6 +281,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
+		Body:       string(cleanReturnBody),
 	}, nil
 }
 
