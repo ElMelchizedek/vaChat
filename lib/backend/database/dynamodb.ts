@@ -12,7 +12,7 @@ export function newMetaChannelTable(props: props) {
     const table = new cdk.aws_dynamodb.TableV2(props.scope, "id".concat(props.name), {
         // Channel Name
         partitionKey: {
-            name: "name",
+            name: "Name",
             type: cdk.aws_dynamodb.AttributeType.STRING
         },
 

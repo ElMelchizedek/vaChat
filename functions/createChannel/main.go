@@ -115,7 +115,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to create new channel's table: %v", err)
 	}
-	fmt.Printf("createTableResult\n %v", createTableResult)
+	fmt.Printf("createTableResult %v", createTableResult)
 
 	// QUEUE
 	var sqsClient *sqs.Client = sqs.NewFromConfig(cfg)
@@ -129,7 +129,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to create queue for new channel: %v", err)
 	}
-	fmt.Printf("createQueueResult\n %v", createQueueResult)
+	fmt.Printf("createQueueResult %v", createQueueResult)
 
 	// Get new queue's ARN
 	var getQueueARNInput *sqs.GetQueueAttributesInput = &sqs.GetQueueAttributesInput{
@@ -143,7 +143,8 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to get new channe's queue's ARN: %v", err)
 	}
-	fmt.Printf("getQueueARNResult\n %v", getQueueARNResult)
+	fmt.Printf("getQueueARNResult %v", getQueueARNResult)
+	// fmt.Printf("QueueARN: %v", getQueueARNResult.Attributes["QueueArn"])
 
 	// TOPICS
 	var snsClient *sns.Client = sns.NewFromConfig(cfg)
@@ -155,7 +156,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to list sns topics: %v", err)
 	}
-	fmt.Printf("listTopicsResult\n %v", listTopicsResult)
+	fmt.Printf("listTopicsResult %v", listTopicsResult)
 
 	var metaTopicARN string
 	for _, topic := range listTopicsResult.Topics {
@@ -181,7 +182,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to subscribe new channel's queue to metaTopic: %v", err)
 	}
-	fmt.Printf("subscribeQueueResult\n %v", subscribeQueueResult)
+	fmt.Printf("subscribeQueueResult %v", subscribeQueueResult)
 
 	// Create new channel's endpoint SNS topic.
 	var createEndpointTopicInput *sns.CreateTopicInput = &sns.CreateTopicInput{
@@ -192,7 +193,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to create new channel's endpoint topic: %v", err)
 	}
-	fmt.Printf("createEndpointTopicResult\n %v", createEndpointTopicResult)
+	fmt.Printf("createEndpointTopicResult %v", createEndpointTopicResult)
 
 	// PARAMETERS
 	var ssmClient *ssm.Client = ssm.NewFromConfig(cfg)
@@ -206,23 +207,22 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to get the lambda messageHandleQueue's ARN from parameter: %v", err)
 	}
-	fmt.Printf("getParameterhandleMessageQueueARNResult\n %v", getParameterHandleMessageQueueARNResult)
+	fmt.Printf("getParameterhandleMessageQueueARNResult %v", getParameterHandleMessageQueueARNResult)
+	// fmt.Printf("Param arn %v", getParameterHandleMessageQueueARNResult.Parameter.ARN)
 
 	// LAMBDA
-	var lambdaClient *lambda.Client = lambda.New(lambda.Options{
-		Region: "ap-southeast-2",
-	})
+	var lambdaClient *lambda.Client = lambda.NewFromConfig(cfg)
 	// Make the newly created channel's queue an event source for the lambda handleMessageQueue.
 	var addEventSourceQueueInput *lambda.CreateEventSourceMappingInput = &lambda.CreateEventSourceMappingInput{
 		EventSourceArn: aws.String(getQueueARNResult.Attributes["QueueArn"]),
-		FunctionName:   getParameterHandleMessageQueueARNResult.Parameter.ARN,
+		FunctionName:   getParameterHandleMessageQueueARNResult.Parameter.Value,
 	}
 
 	addEventSourceQueueResult, err := lambdaClient.CreateEventSourceMapping(ctx, addEventSourceQueueInput)
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to add new channel's queue as an event source to the lambda handleMessageQueue: %v", err)
 	}
-	fmt.Printf("addEventSourceQueueResult\n %v", addEventSourceQueueResult)
+	fmt.Printf("addEventSourceQueueResult %v", addEventSourceQueueResult)
 
 	// ENDING
 
@@ -258,13 +258,13 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to marshal JSON version of return body response: %v", err)
 	}
-	fmt.Printf("cleanReturnBody\n %v", cleanReturnBody)
+	fmt.Printf("cleanReturnBody %v", string(cleanReturnBody))
 
 	putItemChannelInfoResult, err := dynamoClient.PutItem(ctx, putItemChannelInfoInput)
 	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to put new channel's complete info into meta info table")
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to put new channel's complete info into meta info table: %v", err)
 	}
-	fmt.Printf("putItemChannelInfoResult\n %v", putItemChannelInfoResult)
+	fmt.Printf("putItemChannelInfoResult %v", putItemChannelInfoResult)
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,

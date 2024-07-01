@@ -47,7 +47,7 @@ export class BackendStack extends cdk.Stack {
                 'ssm:GetParameters',
                 'ssm:GetParametersByPath',
                 // Lambda
-                'lambda:AddPermission'
+                'lambda:CreateEventSourceMapping'
             ],
             resources: ['*'],
         });
@@ -83,10 +83,21 @@ export class BackendStack extends cdk.Stack {
                 'sns:Publish',
                 // DynamoDB
                 'dynamodb:PutItem',
+                // SQS
+                'sqs:ReceiveMessage',
+                'sqs:DeleteMessage',
+                'sqs:GetQueueAttributes',
             ],
             resources: ['*'],
         });
         functionHandleMessageQueue.addToRolePolicy(permissionsHandleMessageQueue);
+        
+        // Add resource-based policy to handleMessageQueue to allow any SQS queue to invoke it.
+        functionHandleMessageQueue.addPermission("AllowSQSTrigger", {
+            principal: new cdk.aws_iam.ServicePrincipal("sqs.amazonaws.com"),
+            action: "lambda:invokeFunction",
+            sourceArn: `arn:aws:sqs:${this.region}:${this.account}:*`,
+        })
                 
 
         // DynamoDB table for info about every channel.
