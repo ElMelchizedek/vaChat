@@ -13,7 +13,6 @@ interface topicProps {
 interface lambdaProps {
     scope: Construct;
     name: string;
-    functions: aws_go_lambda.GoFunction[];
     lambda: aws_go_lambda.GoFunction;
 }
 
@@ -34,9 +33,5 @@ export function newGenericParamLambdaARN(props: lambdaProps) {
     const param = new cdk.aws_ssm.StringParameter(props.scope, "idParam".concat(props.name), {
         parameterName: props.name.concat("ARN"),
         stringValue: props.lambda.functionArn,
-    })
-    
-    props.functions.forEach((func) => {
-        param.grantRead(func);
     })
 }

@@ -194,7 +194,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	}
 	fmt.Printf("createEndpointTopicResult\n %v", createEndpointTopicResult)
 
-	// PERMISSIONS
+	// PARAMETERS
 	var ssmClient *ssm.Client = ssm.NewFromConfig(cfg)
 
 	// Get the lambda handleMessageQueue's ARN so that permissions can be given to it.
@@ -207,40 +207,6 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to get the lambda messageHandleQueue's ARN from parameter: %v", err)
 	}
 	fmt.Printf("getParameterhandleMessageQueueARNResult\n %v", getParameterHandleMessageQueueARNResult)
-
-	// Policy allowing the lambda handleMessageQueue to publish to the soon-to-be endpoint SNS topic of the new channel.
-	rawPolicy := map[string]interface{}{
-		"Version": "2012-10-17",
-		"Statement": []interface{}{
-			map[string]interface{}{
-				"Effect":   "Allow",
-				"Action":   "sns:Publish",
-				"Resource": createEndpointTopicResult.TopicArn,
-				"Principal": map[string]interface{}{
-					"AWS": getParameterHandleMessageQueueARNResult.Parameter.Value,
-				},
-			},
-		},
-	}
-
-	cleanPolicy, err := json.Marshal(rawPolicy)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to marshal JSON version of policy statement: %v", err)
-	}
-	fmt.Printf("cleanPolicy\n %v", cleanPolicy)
-
-	// Give the lambda handleMessageQueue the permissions to publish to the new channel's endpoint topic.
-	var setTopicAttributesEndpointTopicInput *sns.SetTopicAttributesInput = &sns.SetTopicAttributesInput{
-		TopicArn:       createEndpointTopicResult.TopicArn,
-		AttributeName:  aws.String("Policy"),
-		AttributeValue: aws.String(string(cleanPolicy)),
-	}
-
-	setTopicAttributesEndpointTopicResult, err := snsClient.SetTopicAttributes(ctx, setTopicAttributesEndpointTopicInput)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to add policy allowing handleMessageQueue to publish to new channe's endpoint topic: %v", err)
-	}
-	fmt.Printf("setTopicAttributesEndpointTopicResult\n %v", setTopicAttributesEndpointTopicResult)
 
 	// LAMBDA
 	var lambdaClient *lambda.Client = lambda.New(lambda.Options{

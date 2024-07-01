@@ -94,7 +94,7 @@ export class BackendStack extends cdk.Stack {
             name: "MetaChannelTable",
             function: functionGetChannel,
             scope: this,
-        })
+        });
 
         // SNS topic that will filter messages from web server to correct queue for backend pipeline.
         const metaTopic = customSNS.newMetaTopic({
@@ -111,7 +111,14 @@ export class BackendStack extends cdk.Stack {
             functions: [functionSendMessage],
             scope: this,
             type: "metaTopic",
-        })
+        });
+
+        // Make the handleMessageQueue lambda's ARN a parameter, to be read by the createChannel lambda to add an event source to it.
+        const handleMessageQueueARN = customSSM.newGenericParamLambdaARN({
+            name: "handleMessageQueue",
+            lambda: functionHandleMessageQueue,
+            scope: this,
+        });
 
         const {integrations, api} = customAPI.newMiddlewareGatewayAPI({
             name: "GatewayWebserverAPI",
