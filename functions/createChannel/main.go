@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	sqsTypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
 func printStructContents[T any](selectStruct T) {
@@ -173,9 +174,68 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 
 	subscribeQueueResult, err := snsClient.Subscribe(ctx, subscribeQueueInput)
 	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to subscrine new channel's queue to metaTopic: %v", err)
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to subscribe new channel's queue to metaTopic: %v", err)
 	}
 	fmt.Printf("subscribeQueueResult\n %v", subscribeQueueResult)
+
+	// Create new channel's endpoint SNS topic.
+	var createEndpointTopicInput *sns.CreateTopicInput = &sns.CreateTopicInput{
+		Name: aws.String(choiceName + "EndpointTopic"),
+	}
+
+	createEndpointTopicResult, err := snsClient.CreateTopic(ctx, createEndpointTopicInput)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to create new channel's endpoint topic: %v", err)
+	}
+	fmt.Printf("createEndpointTopicResult\n %v", createEndpointTopicResult)
+
+	// PERMISSIONS
+	var ssmClient *ssm.Client = ssm.NewFromConfig(cfg)
+
+	// Get the lambda handleMessageQueue's ARN so that permissions can be given to it.
+	var getParameterHandleMessageQueueARNInput *ssm.GetParameterInput = &ssm.GetParameterInput{
+		Name: aws.String("handleMessageQueueARN"),
+	}
+
+	getParameterHandleMessageQueueARNResult, err := ssmClient.GetParameter(ctx, getParameterHandleMessageQueueARNInput)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to get the lambda messageHandleQueue's ARN from parameter: %v", err)
+	}
+	fmt.Printf("getParameterhandleMessageQueueARNResult\n %v", getParameterHandleMessageQueueARNResult)
+
+	// Policy allowing the lambda handleMessageQueue to publish to the soon-to-be endpoint SNS topic of the new channel.
+	rawPolicy := map[string]interface{}{
+		"Version": "2012-10-17",
+		"Statement": []interface{}{
+			map[string]interface{}{
+				"Effect":   "Allow",
+				"Action":   "sns:Publish",
+				"Resource": createEndpointTopicResult.TopicArn,
+				"Principal": map[string]interface{}{
+					"AWS": getParameterHandleMessageQueueARNResult.Parameter.Value,
+				},
+			},
+		},
+	}
+
+	cleanPolicy, err := json.Marshal(rawPolicy)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to marshal JSON version of policy statement: %v", err)
+	}
+	fmt.Printf("cleanPolicy\n %v", cleanPolicy)
+
+	// Give the lambda handleMessageQueue the permissions to publish to the new channel's endpoint topic.
+	var setTopicAttributesEndpointTopicInput *sns.SetTopicAttributesInput = &sns.SetTopicAttributesInput{
+		TopicArn:       createEndpointTopicResult.TopicArn,
+		AttributeName:  aws.String("Policy"),
+		AttributeValue: aws.String(string(cleanPolicy)),
+	}
+
+	setTopicAttributesEndpointTopicResult, err := snsClient.SetTopicAttributes(ctx, setTopicAttributesEndpointTopicInput)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to add policy allowing handleMessageQueue to publish to new channe's endpoint topic: %v", err)
+	}
+	fmt.Printf("setTopicAttributesEndpointTopicResult\n %v", setTopicAttributesEndpointTopicResult)
 
 	// Add channel's complete info for all service into the meta channel info table.
 	var putItemChannelInfoInput *dynamodb.PutItemInput = &dynamodb.PutItemInput{
@@ -189,6 +249,9 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 			},
 			"QueueARN": &dynamodbTypes.AttributeValueMemberS{
 				Value: getQueueARNResult.Attributes["QueueArn"],
+			},
+			"EndpointTopicARN": &dynamodbTypes.AttributeValueMemberS{
+				Value: *createEndpointTopicResult.TopicArn,
 			},
 		},
 	}

@@ -29,6 +29,14 @@ export class BackendStack extends cdk.Stack {
             scope: this,
         })
 
+        // Create parameter for functionHandleMessageQueue's ARN, for use in functionCreateChannel to set up the backend message loop.
+        const paramHandleMessageQueueARN = customSSM.newGenericParamLambdaARN({
+            name: "handleMessageQueue",
+            lambda: functionHandleMessageQueue,
+            functions: [functionCreateChannel],
+            scope: this,
+        })
+
         // The ONE queue for testing.
         const queueChannel = customSQS.newChannelQueue({
             name: "Main",
@@ -74,22 +82,22 @@ export class BackendStack extends cdk.Stack {
             type: "metaTopic",
         })
 
-        // The ONE endpoint SNS topic.
-        const topicChannel = customSNS.newEndpointTopic({
-            name: "channelTopicMain",
-            fifo: false,
-            scope: this,
-            function: functionHandleMessageQueue,
-        });
+        // // The ONE endpoint SNS topic.
+        // const topicChannel = customSNS.newEndpointTopic({
+        //     name: "channelTopicMain",
+        //     fifo: false,
+        //     scope: this,
+        //     function: functionHandleMessageQueue,
+        // });
 
-        // The ONE SNS ARN endpoint paramater.
-        const channelTopicARN = customSSM.newGenericParamTopicARN({
-            name: "Main",
-            topic: topicChannel,
-            functions: [functionHandleMessageQueue],
-            scope: this,
-            type: "channelTopic",
-        });
+        // // The ONE SNS ARN endpoint paramater.
+        // const channelTopicARN = customSSM.newGenericParamTopicARN({
+        //     name: "Main",
+        //     topic: topicChannel,
+        //     functions: [functionHandleMessageQueue],
+        //     scope: this,
+        //     type: "channelTopic",
+        // });
 
         const {integrations, api} = customAPI.newMiddlewareGatewayAPI({
             name: "GatewayWebserverAPI",
