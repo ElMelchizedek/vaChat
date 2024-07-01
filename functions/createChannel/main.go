@@ -100,9 +100,6 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 					},
 				},
 				Projection: &dynamodbTypes.Projection{
-					NonKeyAttributes: []string{
-						"Time",
-					},
 					ProjectionType: dynamodbTypes.ProjectionTypeAll,
 				},
 			},
@@ -136,6 +133,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 
 	// Get new queue's ARN
 	var getQueueARNInput *sqs.GetQueueAttributesInput = &sqs.GetQueueAttributesInput{
+		QueueUrl: createQueueResult.QueueUrl,
 		AttributeNames: []sqsTypes.QueueAttributeName{
 			"QueueArn",
 		},
