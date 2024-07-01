@@ -109,6 +109,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 		},
 		BillingMode: dynamodbTypes.BillingModePayPerRequest,
 		StreamSpecification: &dynamodbTypes.StreamSpecification{
+			StreamEnabled:  aws.Bool(true),
 			StreamViewType: dynamodbTypes.StreamViewTypeNewAndOldImages,
 		},
 	}
