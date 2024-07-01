@@ -60,7 +60,7 @@ func getAllChannels(ctx *context.Context) ReturnGetAllChannels {
 
 }
 
-func handleChannelRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func handleGetChannelRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	printStructContents(request)
 	var query map[string]string = request.QueryStringParameters
 
@@ -92,5 +92,5 @@ func handleChannelRequest(ctx context.Context, request events.APIGatewayProxyReq
 }
 
 func main() {
-	lambda.Start(handleChannelRequest)
+	lambda.Start(handleGetChannelRequest)
 }

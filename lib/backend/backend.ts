@@ -24,6 +24,10 @@ export class BackendStack extends cdk.Stack {
             name: "getChannel",
             scope: this,
         })
+        const functionCreateChannel = customLambda.newGoLambda({
+            name: "createChannel",
+            scope: this,
+        })
 
         // The ONE queue for testing.
         const queueChannel = customSQS.newChannelQueue({
@@ -87,7 +91,7 @@ export class BackendStack extends cdk.Stack {
             type: "channelTopic",
         });
 
-        const {integration, api} = customAPI.newMiddlewareGatewayAPI({
+        const {integrations, api} = customAPI.newMiddlewareGatewayAPI({
             name: "GatewayWebserverAPI",
             functions: [
                 {
