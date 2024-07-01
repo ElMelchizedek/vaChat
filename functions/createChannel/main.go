@@ -171,11 +171,24 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 		return events.APIGatewayProxyResponse{}, nil
 	}
 
+	// Filter policy for subscription from queue to MetaTopic so as to only allow messages that specify the new channel.
+	rawNewFilter := map[string]interface{}{
+		"Channel": []string{choiceName},
+	}
+
+	cleanNewFilter, err := json.Marshal(rawNewFilter)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("could not JSON marshal filter policy for queue subscription: %v", err)
+	}
+
 	// Subscribes the newly created queue to MetaTopic
 	var subscribeQueueInput *sns.SubscribeInput = &sns.SubscribeInput{
 		Endpoint: aws.String(getQueueARNResult.Attributes["QueueArn"]),
 		TopicArn: aws.String(metaTopicARN),
 		Protocol: aws.String("sqs"),
+		Attributes: map[string]string{
+			"FilterPolicy": string(cleanNewFilter),
+		},
 	}
 
 	subscribeQueueResult, err := snsClient.Subscribe(ctx, subscribeQueueInput)
