@@ -11,10 +11,7 @@ interface Props {
     } [];
 }
 
-export function newMiddlewareGatewayAPI(props: Props): { 
-    integration: cdk.aws_apigatewayv2_integrations.HttpLambdaIntegration;
-    api: cdk.aws_apigatewayv2.HttpApi;
-    } {
+export function newMiddlewareGatewayAPI(props: Props) {
     
     // This should be automated eventually.
     const integrationSendMessageLambda = new cdk.aws_apigatewayv2_integrations.HttpLambdaIntegration(

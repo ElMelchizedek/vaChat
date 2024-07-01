@@ -11,12 +11,18 @@ export function Message({ children, accountId }: { children: string, accountId: 
 }
 
 export class Client {
-    constructor(ws_send: (content: string) => void) {
+    constructor(
+        ws_send: (content: JSX.Element) => void,
+        channels: string[],
+        subscribedTo: string
+    ) {
         this.send = ws_send;
+        this.channels = channels;
+        this.subscribedTo = subscribedTo;
     }
 
     public async sendMessage(accountId: string, content: string | string[]) {
-        this.send(await
+        this.send(
             <div id="messages" hx-swap-oob="beforeend">
                 {
                     typeof content === 'string'
@@ -37,5 +43,16 @@ export class Client {
         )
     }
 
-    private send: (content: string) => void;
+    public async sendHistory(history: string[]) {}
+
+    public async clearHistory() {
+        this.send(
+            <div id="messages" hx-swap-oob="outerHTML" />
+        )
+    }
+
+    private send: (content: JSX.Element) => void;
+    private channels: string[];
+    
+    public subscribedTo: string;
 }

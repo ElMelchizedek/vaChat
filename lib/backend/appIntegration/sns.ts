@@ -18,7 +18,7 @@ interface endpointProps extends props {
     function: cdk.aws_lambda.Function;
 }
 
-function prettifyDisplayName(input: string): string {
+function prettifyDisplayName(input: string) {
     // Split string based on capital letters.
     const words = input.split(/(?=[A-Z])/);
     // Capitalise the first letter of each word.

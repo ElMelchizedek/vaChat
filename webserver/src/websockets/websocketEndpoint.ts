@@ -2,7 +2,7 @@ import { Elysia } from "elysia"
 import { Client } from "./client"
 import { submitMessage } from "../backend-integration"
 
-export const ws = (sessions: Map<string, Client>) =>
+export const ws = (sessions: Map<string, Client>, channelInfo: [string, string][]) =>
     (app: Elysia) =>
         app.ws(
             '/ws-main', 
@@ -12,7 +12,14 @@ export const ws = (sessions: Map<string, Client>) =>
                     const sessionId = ws.data.cookie.session.value
                     
                     // setup Client handler for new WebSocket connection
-                    sessions.set(sessionId, new Client(ws.send))
+                    sessions.set(
+                        sessionId,
+                        new Client(
+                            ws.send,
+                            channelInfo.map(([channel]) => channel),
+                            channelInfo[0][0]
+                        )
+                    )
 
                     // subscribe to user's landing channel
 
@@ -24,13 +31,13 @@ export const ws = (sessions: Map<string, Client>) =>
 
                 // runs every time a message is sent over a WebSocket connection
                 async message(ws, content) {
-                    const { message } = content as { message: string }
+                    const { message, channel } = content as { message: string, channel: string }
 
                     console.log("Message received: ", message)
 
                     // submit new message to backend system via API gateway
                     console.log("Submit message response:", JSON.stringify(await submitMessage({
-                        channel: "Main",
+                        channel: channel,
                         account: "1",
                         timestamp: Date.now().toString(),
                         message

@@ -3,7 +3,8 @@ import { html } from '@elysiajs/html'
 
 import {
     snsIngest,
-    subscribeToChannel
+    subscribeToChannel,
+    getChannels
 } from './backend-integration'
 
 import {
@@ -11,15 +12,28 @@ import {
     Client
 } from './websockets'
 
+const {
+    TOPIC_ARN,
+    WEBSERVER_PORT: port
+} = process.env
+
+if(!TOPIC_ARN) {
+    throw new Error("TOPIC_ARN environment variable not set")
+} else if(!port) {
+    throw new Error("WEBSERVER_PORT environment variable not set")
+}
+
 // maps session IDs to Client handlers
 const sessions = new Map<string, Client>()
+
+const channelInfo = Object.entries(await getChannels() || {})
 
 new Elysia()
     .use(html())
 
     .get(
         '/', 
-        ({ set }) => {
+        async ({ set }) => {
             // TODO: sessionId is not unique for individual tabs.
             // ....: Need to generate a unique ID for each tab.
             // ....: how get this information to a normal hx get...
@@ -45,9 +59,19 @@ new Elysia()
                     <body  hx-ext="ws" ws-connect="/ws-main">
                         <h1>Message others</h1>
 
+                        <select id="channel-select" name="channel" hx-get="/changeChannel" hx-trigger="change">
+                            {
+                                channelInfo.map(
+                                    ([channel]) => (
+                                        <option value={channel}>{channel}</option>
+                                    )
+                                )
+                            }
+                        </select>
+
                         <div id="messages"></div>
 
-                        <form id="write-message" ws-send>
+                        <form id="write-message" hx-include="#channel-select" ws-send>
                             <input name="message" />
                         </form>
                     </body>
@@ -56,7 +80,25 @@ new Elysia()
         }
     )
 
-    .use(ws(sessions))
+    .get('/changeChannel', 
+        async ({ query, cookie }) => {
+            const sessionId = cookie.session.value
+
+            const client = sessions.get(sessionId)!
+            client.clearHistory()
+            client.subscribedTo = query.channel
+        }, 
+        {
+            query: t.Object({
+                channel: t.String()
+            }),
+            cookie: t.Object({
+                session: t.String()
+            })
+        }
+    )
+
+    .use(ws(sessions, channelInfo))
 
     .use(
         snsIngest(
@@ -64,17 +106,16 @@ new Elysia()
             (message) => {
                 sessions.forEach(
                     (client) => {
-                        client.sendMessage(
-                            message.MessageAttributes.account.Value, 
-                            message.Message
-                        )
+                        if (client.subscribedTo === message.MessageAttributes.channel.Value) {
+                            client.sendMessage(
+                                message.MessageAttributes.account.Value, 
+                                message.Message
+                            )
+                        }
                     }
                 )
             }
         )
     )
 
-    .listen(3000)
-
-console.log("Subscribing to channel")
-console.log(JSON.stringify(await subscribeToChannel(process.env.TOPIC_ARN!)))
+    .listen(+port)
