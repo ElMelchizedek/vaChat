@@ -101,6 +101,10 @@ export class BackendStack extends cdk.Stack {
                 {
                     name: "getChannel",
                     function: functionGetChannel,
+                },
+                {
+                    name: "createChannel",
+                    function: functionCreateChannel,
                 }
             ],
             scope: this,
