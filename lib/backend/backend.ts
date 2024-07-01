@@ -29,32 +29,50 @@ export class BackendStack extends cdk.Stack {
             scope: this,
         })
 
-        // Create parameter for functionHandleMessageQueue's ARN, for use in functionCreateChannel to set up the backend message loop.
-        // const paramHandleMessageQueueARN = customSSM.newGenericParamLambdaARN({
-        //     name: "handleMessageQueue",
-        //     lambda: functionHandleMessageQueue,
-        //     functions: [functionCreateChannel],
-        //     scope: this,
-        // })
+        // Give lambdas permissions where necessary.
+        const permissionsCreateChannel = new cdk.aws_iam.PolicyStatement({
+            actions: [
+                // DynamoDB
+                'dynamodb:CreateTable',
+                'dynamodb:PutItem',
+                // SQS
+                'sqs:CreateQueue',
+                'sqs:GetQueueAttributes',
+                // SNS
+                'sns:ListTopics',
+                'sns:Subscribe',
+                'sns:CreateTopic',
+                // SSM
+                'ssm:GetParameter',
+                'ssm:GetParameters',
+                'ssm:GetParametersByPath',
+                // Lambda
+                'lambda:AddPermission'
+            ],
+            resources: ['*'],
+        });
+        functionCreateChannel.addToRolePolicy(permissionsCreateChannel);
 
-        // The ONE queue for testing.
-        // const queueChannel = customSQS.newChannelQueue({
-        //     name: "Main",
-        //     function: functionHandleMessageQueue,
-        //     scope: this,
-        // });
-        
-        // Make the channel queue the event source for HandleMessageQueue.
-        // functionHandleMessageQueue.addEventSource(
-        //     new cdk.aws_lambda_event_sources.SqsEventSource(queueChannel)
-        // );
+        const permissionsSendMessage = new cdk.aws_iam.PolicyStatement({
+            actions: [
+                // SSM
+                'ssm:GetParameter',
+                'ssm:GetParameters',
+                'ssm:GetParametersByPath',
+            ],
+            resources: ['*'],
+        })
+        functionSendMessage.addToRolePolicy(permissionsSendMessage);
 
-        // // DynamoDB table for a channel.
-        // const tableChannelMain = customDynamoDB.newChannelTable({
-        //     name: "Main",
-        //     function: functionHandleMessageQueue,
-        //     scope: this
-        // });
+        const permissionsGetChannel = new cdk.aws_iam.PolicyStatement({
+            actions: [
+                // DynamoDB
+                'dynamodb:Scan',
+            ],
+            resources: ['*'],
+        });
+        functionGetChannel.addToRolePolicy(permissionsGetChannel);
+                
 
         // DynamoDB table for info about every channel.
         const tableMetaChannel = customDynamoDB.newMetaChannelTable({
@@ -66,8 +84,6 @@ export class BackendStack extends cdk.Stack {
         // SNS topic that will filter messages from web server to correct queue for backend pipeline.
         const metaTopic = customSNS.newMetaTopic({
             name: "metaTopic",
-            // subscribers: [queueChannel],
-            // subscriberNicknames: ["Main"],
             fifo: false,
             scope: this,
             function: functionSendMessage,
@@ -81,23 +97,6 @@ export class BackendStack extends cdk.Stack {
             scope: this,
             type: "metaTopic",
         })
-
-        // // The ONE endpoint SNS topic.
-        // const topicChannel = customSNS.newEndpointTopic({
-        //     name: "channelTopicMain",
-        //     fifo: false,
-        //     scope: this,
-        //     function: functionHandleMessageQueue,
-        // });
-
-        // // The ONE SNS ARN endpoint paramater.
-        // const channelTopicARN = customSSM.newGenericParamTopicARN({
-        //     name: "Main",
-        //     topic: topicChannel,
-        //     functions: [functionHandleMessageQueue],
-        //     scope: this,
-        //     type: "channelTopic",
-        // });
 
         const {integrations, api} = customAPI.newMiddlewareGatewayAPI({
             name: "GatewayWebserverAPI",
