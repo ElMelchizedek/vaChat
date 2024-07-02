@@ -67,7 +67,7 @@ nil
 ### v0.2.0
 * Ability to create and choose channels.
 ### v0.3.0
-* Integration of webserver code into an CDK-conducted ECS deployment.
+* Integration of webserver code into a CDK-conducted ECS deployment.
 ### v0.4.0
 * Authentication with accounts.
 * Account-level control of access to channels by their creators.
