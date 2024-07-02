@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -27,14 +28,14 @@ type ReturnGetAllChannels struct {
 	output   *dynamodb.ScanOutput
 }
 
-func getAllChannels(ctx *context.Context) ReturnGetAllChannels {
+func getAllChannels(ctx *context.Context) *ReturnGetAllChannels {
 	var cfg aws.Config
 	var err error
 	cfg, err = config.LoadDefaultConfig(*ctx,
 		config.WithRegion("ap-southeast-2"),
 	)
 	if err != nil {
-		return ReturnGetAllChannels{
+		return &ReturnGetAllChannels{
 			events.APIGatewayProxyResponse{},
 			fmt.Errorf("failed to initialise SDK with default configuration: %v", err),
 			nil}
@@ -42,22 +43,21 @@ func getAllChannels(ctx *context.Context) ReturnGetAllChannels {
 
 	var client *dynamodb.Client = dynamodb.NewFromConfig(cfg)
 	var input *dynamodb.ScanInput = &dynamodb.ScanInput{
-		TableName: aws.String("ChannelTable"),
+		TableName: aws.String("MetaChannelTable"),
 	}
 
 	result, err := client.Scan(*ctx, input)
 	if err != nil {
-		return ReturnGetAllChannels{
+		return &ReturnGetAllChannels{
 			events.APIGatewayProxyResponse{},
 			fmt.Errorf("failed to perform Scan function on table %v: %v", input.TableName, err),
 			nil}
 	}
 
-	return ReturnGetAllChannels{
+	return &ReturnGetAllChannels{
 		events.APIGatewayProxyResponse{},
 		nil,
 		result}
-
 }
 
 func handleGetChannelRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -75,19 +75,21 @@ func handleGetChannelRequest(ctx context.Context, request events.APIGatewayProxy
 
 	switch choice {
 	case "all":
-		response = getAllChannels(&ctx)
+		response = *getAllChannels(&ctx)
 	default:
 		fmt.Println("Unsupported type specified.")
 		return events.APIGatewayProxyResponse{}, nil
 	}
 
-	for key, value := range response.output.Items {
-		fmt.Printf("Key: %v, Value: %v\n", key, value)
+	parsedData, err := json.Marshal(response.output.Items)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed parsing json to return in response body: %v", err)
 	}
+	fmt.Println(string(parsedData))
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
-		Body:       response.response.Body,
+		Body:       string(parsedData),
 	}, nil
 }
 
