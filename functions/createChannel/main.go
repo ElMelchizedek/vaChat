@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
+	"os"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -20,24 +20,40 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
-func printStructContents[T any](selectStruct T) {
-	t := reflect.TypeOf(selectStruct)
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		value := reflect.ValueOf(selectStruct).Field(i).Interface()
-		fmt.Printf("%s: %v\n", field.Name, value)
+// Automates frequent error handling.
+func errorHandle(message string, err error, format bool) (events.APIGatewayProxyResponse, error) {
+	if err != nil {
+		if format {
+			fmt.Printf("%v %v", events.APIGatewayCustomAuthorizerResponse{}, fmt.Errorf(message, ": %v", err))
+			os.Exit(1)
+		} else {
+			fmt.Printf("ERROR: %v\n", message)
+			fmt.Printf("%v\n", events.APIGatewayCustomAuthorizerResponse{})
+			os.Exit(1)
+		}
+	} else {
+		fmt.Println("Inccorect use of errorHandle.")
+		return events.APIGatewayProxyResponse{}, nil
 	}
+	fmt.Println("Unknown error regarding errorHandle()")
+	return events.APIGatewayProxyResponse{}, nil
 }
 
-func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	printStructContents(request)
+// Converts map[string]interface variables into json.Marshal-ed strings.
+func cleanSelfMadeJson(rawValue map[string]interface{}) string {
+	cleanValue, err := json.Marshal(rawValue)
+	errorHandle("Failed to json marshal a value", err, true)
+	return string(cleanValue)
+}
 
+// Main handler function.
+func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	// Parse chosen name from json body request.
 	var choiceName string
 	var decodedData map[string]interface{}
 
-	if err := json.Unmarshal([]byte(request.Body), &decodedData); err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("json.Unmarshal error: %v", err)
-	}
+	err := json.Unmarshal([]byte(request.Body), &decodedData)
+	errorHandle("json.Unmarshal error", err, true)
 
 	if value, ok := decodedData["name"]; !ok {
 		fmt.Println("No name key in json body.")
@@ -46,18 +62,21 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 		choiceName = value.(string)
 	}
 
+	// Set up aws sdk config.
 	var cfg aws.Config
-	var err error
 	cfg, err = config.LoadDefaultConfig(ctx,
 		config.WithRegion("ap-southeast-2"),
 	)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to initialise SDK with default configuration: %v", err)
-	}
+	errorHandle("failed to initialise SDK with default configuration", err, true)
+
+	// Initialise clients for services.
+	var dynamoClient *dynamodb.Client = dynamodb.NewFromConfig(cfg)
+	var sqsClient *sqs.Client = sqs.NewFromConfig(cfg)
+	var snsClient *sns.Client = sns.NewFromConfig(cfg)
+	var ssmClient *ssm.Client = ssm.NewFromConfig(cfg)
+	var lambdaClient *lambda.Client = lambda.NewFromConfig(cfg)
 
 	// TABLE
-	var dynamoClient *dynamodb.Client = dynamodb.NewFromConfig(cfg)
-
 	// Create new channel's table.
 	var createTableInput *dynamodb.CreateTableInput = &dynamodb.CreateTableInput{
 		TableName: aws.String(choiceName + "Table"),
@@ -110,16 +129,10 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 			StreamViewType: dynamodbTypes.StreamViewTypeNewAndOldImages,
 		},
 	}
-
 	createTableResult, err := dynamoClient.CreateTable(ctx, createTableInput)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to create new channel's table: %v", err)
-	}
-	fmt.Printf("createTableResult %v", createTableResult)
+	errorHandle("failed to create new channel's table", err, true)
 
 	// QUEUE
-	var sqsClient *sqs.Client = sqs.NewFromConfig(cfg)
-
 	// Gives SNS permission to send messages to the new channel's queue.
 	policyMetaTopicSendMessageQueue := map[string]interface{}{
 		"Version": "2012-10-17",
@@ -137,26 +150,15 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 		},
 	}
 
-	cleanPolicyMetaTopicSendMessageQueue, err := json.Marshal(policyMetaTopicSendMessageQueue)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to json marshal policy to allow metaTopic to send messages to new channel's queue: %v", err)
-	}
-	fmt.Printf("cleanPolicyMetaTopicSendMessageQueue %v", cleanPolicyMetaTopicSendMessageQueue)
-	fmt.Printf("Policy: %v\n", string(cleanPolicyMetaTopicSendMessageQueue))
-
 	// Create SQS queue for new channel.
 	var createQueueInput *sqs.CreateQueueInput = &sqs.CreateQueueInput{
 		QueueName: aws.String(choiceName + "Channel" + "Queue"),
 		Attributes: map[string]string{
-			"Policy": string(cleanPolicyMetaTopicSendMessageQueue),
+			"Policy": cleanSelfMadeJson(policyMetaTopicSendMessageQueue),
 		},
 	}
-
 	createQueueResult, err := sqsClient.CreateQueue(ctx, createQueueInput)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to create queue for new channel: %v", err)
-	}
-	fmt.Printf("createQueueResult %v", createQueueResult)
+	errorHandle("failed to create queue for new channel", err, true)
 
 	// Get new queue's ARN
 	var getQueueARNInput *sqs.GetQueueAttributesInput = &sqs.GetQueueAttributesInput{
@@ -165,25 +167,14 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 			"QueueArn",
 		},
 	}
-
 	getQueueARNResult, err := sqsClient.GetQueueAttributes(ctx, getQueueARNInput)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to get new channe's queue's ARN: %v", err)
-	}
-	fmt.Printf("getQueueARNResult %v", getQueueARNResult)
-	// fmt.Printf("QueueARN: %v", getQueueARNResult.Attributes["QueueArn"])
+	errorHandle("failed to get new channel's queue's ARN", err, true)
 
 	// TOPICS
-	var snsClient *sns.Client = sns.NewFromConfig(cfg)
-
 	// Get MetaTopic's ARN
 	var listTopicsInput *sns.ListTopicsInput = &sns.ListTopicsInput{}
-
 	listTopicsResult, err := snsClient.ListTopics(ctx, listTopicsInput)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to list sns topics: %v", err)
-	}
-	fmt.Printf("listTopicsResult %v", listTopicsResult)
+	errorHandle("faield to list sns topics", err, true)
 
 	var metaTopicARN string
 	for _, topic := range listTopicsResult.Topics {
@@ -192,20 +183,13 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 			break
 		}
 	}
-
 	if metaTopicARN == "" {
-		fmt.Println("Failed to find metaTopic's ARN.")
-		return events.APIGatewayProxyResponse{}, nil
+		errorHandle("failed to find metaTopic's ARN", nil, false)
 	}
 
 	// Filter policy for subscription from queue to MetaTopic so as to only allow messages that specify the new channel.
 	rawNewFilter := map[string]interface{}{
 		"channel": []string{choiceName},
-	}
-
-	cleanNewFilter, err := json.Marshal(rawNewFilter)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("could not JSON marshal filter policy for queue subscription: %v", err)
 	}
 
 	// Subscribes the newly created queue to MetaTopic
@@ -214,58 +198,37 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 		TopicArn: aws.String(metaTopicARN),
 		Protocol: aws.String("sqs"),
 		Attributes: map[string]string{
-			"FilterPolicy": string(cleanNewFilter),
+			"FilterPolicy": cleanSelfMadeJson(rawNewFilter),
 		},
 	}
-
-	subscribeQueueResult, err := snsClient.Subscribe(ctx, subscribeQueueInput)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to subscribe new channel's queue to metaTopic: %v", err)
-	}
-	fmt.Printf("subscribeQueueResult %v", subscribeQueueResult)
+	_, err = snsClient.Subscribe(ctx, subscribeQueueInput)
+	errorHandle("failed to subscribe new channel's queue to metaTopic", err, true)
 
 	// Create new channel's endpoint SNS topic.
 	var createEndpointTopicInput *sns.CreateTopicInput = &sns.CreateTopicInput{
 		Name: aws.String(choiceName + "EndpointTopic"),
 	}
-
 	createEndpointTopicResult, err := snsClient.CreateTopic(ctx, createEndpointTopicInput)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to create new channel's endpoint topic: %v", err)
-	}
-	fmt.Printf("createEndpointTopicResult %v", createEndpointTopicResult)
+	errorHandle("failed to create new channel's endpoint topic", err, true)
 
 	// PARAMETERS
-	var ssmClient *ssm.Client = ssm.NewFromConfig(cfg)
-
 	// Get the lambda handleMessageQueue's ARN so that permissions can be given to it.
 	var getParameterHandleMessageQueueARNInput *ssm.GetParameterInput = &ssm.GetParameterInput{
 		Name: aws.String("handleMessageQueueARN"),
 	}
-
 	getParameterHandleMessageQueueARNResult, err := ssmClient.GetParameter(ctx, getParameterHandleMessageQueueARNInput)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to get the lambda messageHandleQueue's ARN from parameter: %v", err)
-	}
-	fmt.Printf("getParameterhandleMessageQueueARNResult %v", getParameterHandleMessageQueueARNResult)
-	// fmt.Printf("Param arn %v", getParameterHandleMessageQueueARNResult.Parameter.ARN)
+	errorHandle("failed to get the lambda messageHandleQueue's ARN from parameter", err, true)
 
 	// LAMBDA
-	var lambdaClient *lambda.Client = lambda.NewFromConfig(cfg)
 	// Make the newly created channel's queue an event source for the lambda handleMessageQueue.
 	var addEventSourceQueueInput *lambda.CreateEventSourceMappingInput = &lambda.CreateEventSourceMappingInput{
 		EventSourceArn: aws.String(getQueueARNResult.Attributes["QueueArn"]),
 		FunctionName:   getParameterHandleMessageQueueARNResult.Parameter.Value,
 	}
-
-	addEventSourceQueueResult, err := lambdaClient.CreateEventSourceMapping(ctx, addEventSourceQueueInput)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to add new channel's queue as an event source to the lambda handleMessageQueue: %v", err)
-	}
-	fmt.Printf("addEventSourceQueueResult %v", addEventSourceQueueResult)
+	_, err = lambdaClient.CreateEventSourceMapping(ctx, addEventSourceQueueInput)
+	errorHandle("failed to add new channel's queue as an aevent source to the lambda handleMessageQueue", err, true)
 
 	// ENDING
-
 	// Add channel's complete info for all service into the meta channel info table.
 	var putItemChannelInfoInput *dynamodb.PutItemInput = &dynamodb.PutItemInput{
 		TableName: aws.String("MetaChannelTable"),
@@ -286,29 +249,18 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	}
 
 	// Send a JSON body for the return response from API Gateway to the client webserver with any potentially desired information about the newly created channel.
-
 	rawReturnBody := map[string]interface{}{
 		"Name":             choiceName,
 		"TableARN":         createTableResult.TableDescription.TableArn,
 		"QueueARN":         getQueueARNResult.Attributes["QueueArn"],
 		"EndpointTopicARN": createEndpointTopicResult.TopicArn,
 	}
-
-	cleanReturnBody, err := json.Marshal(rawReturnBody)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to marshal JSON version of return body response: %v", err)
-	}
-	fmt.Printf("cleanReturnBody %v", string(cleanReturnBody))
-
-	putItemChannelInfoResult, err := dynamoClient.PutItem(ctx, putItemChannelInfoInput)
-	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to put new channel's complete info into meta info table: %v", err)
-	}
-	fmt.Printf("putItemChannelInfoResult %v", putItemChannelInfoResult)
+	_, err = dynamoClient.PutItem(ctx, putItemChannelInfoInput)
+	errorHandle("failed to put new channe's complete info into meta info table", err, true)
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
-		Body:       string(cleanReturnBody),
+		Body:       cleanSelfMadeJson(rawReturnBody),
 	}, nil
 }
 
