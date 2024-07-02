@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as customLambda from "./compute/lambda";
-import * as customSQS from "./appIntegration/sqs";
 import * as customDynamoDB from "./database/dynamodb";
 import * as customSNS from "./appIntegration/sns";
 import * as customSSM from "../common/management/ssm";
