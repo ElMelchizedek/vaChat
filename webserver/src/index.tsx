@@ -28,6 +28,9 @@ const sessions = new Map<string, Client>()
 
 const channelInfo = Object.entries(await getChannels() || {})
 
+for(const [_, arn] of channelInfo)
+    await subscribeToChannel(arn)
+
 new Elysia()
     .use(html())
 
