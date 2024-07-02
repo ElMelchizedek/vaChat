@@ -60,3 +60,14 @@
 ```
 nil
 ```
+
+## Roadmap
+### v0.1.0 (COMPLETE)
+* Rudimentary and basic one-to-one, single-channel messaging functionality.
+### v0.2.0
+* Ability to create and choose channels.
+### v0.3.0
+* Integration of webserver code into an CDK-conducted ECS deployment.
+### v0.4.0
+* Authentication with accounts.
+* Account-level control of access to channels by their creators.
