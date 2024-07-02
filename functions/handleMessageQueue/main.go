@@ -10,11 +10,11 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	snstypes "github.com/aws/aws-sdk-go-v2/service/sns/types"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
 type SQSMessage struct {
@@ -49,12 +49,11 @@ func sendToTopic(ctx context.Context, snsClient *sns.Client, ssmClient *ssm.Clie
 	paramResponse, err := ssmClient.GetParameter(ctx, &ssm.GetParameterInput{
 		Name: &paramName,
 	})
-	if err != nil {
-		return fmt.Errorf("failed to get parameter: %w", err)
-	}
+	fmt.Printf("%v", paramResponse)
 
 	_, err = snsClient.Publish(ctx, &sns.PublishInput{
-		TargetArn: paramResponse.Parameter.Value,
+		// FIX THIS! WE AREN'T PUTTING ENDPOINT TOPIC ARNS IN PARAMETER STORE ANYMORE!
+		TargetArn: aws.String("ARN HERE"),
 		Message:   &messageContent,
 		MessageAttributes: map[string]snstypes.MessageAttributeValue{
 			"account": {
@@ -113,10 +112,10 @@ func handler(ctx context.Context, event SQSEvent) error {
 		_, err = dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
 			TableName: &tableName,
 			Item: map[string]types.AttributeValue{
-				"channel": &types.AttributeValueMemberS{Value: messageChannel},
-				"account": &types.AttributeValueMemberN{Value: strconv.Itoa(messageAccountNum)},
-				"time":    &types.AttributeValueMemberN{Value: strconv.Itoa(messageTimeNum)},
-				"content": &types.AttributeValueMemberS{Value: messageContent},
+				"channel":   &types.AttributeValueMemberS{Value: messageChannel},
+				"account":   &types.AttributeValueMemberN{Value: strconv.Itoa(messageAccountNum)},
+				"timestamp": &types.AttributeValueMemberN{Value: strconv.Itoa(messageTimeNum)},
+				"content":   &types.AttributeValueMemberS{Value: messageContent},
 			},
 		})
 		if err != nil {

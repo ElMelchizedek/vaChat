@@ -64,25 +64,25 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 		AttributeDefinitions: []dynamodbTypes.AttributeDefinition{
 			// TODO: Add IDs as primary key instead of names.
 			{
-				AttributeName: aws.String("Account"),
+				AttributeName: aws.String("account"),
 				AttributeType: dynamodbTypes.ScalarAttributeTypeN,
 			},
 			{
-				AttributeName: aws.String("Time"),
+				AttributeName: aws.String("timestamp"),
 				AttributeType: dynamodbTypes.ScalarAttributeTypeN,
 			},
 			{
-				AttributeName: aws.String("Content"),
+				AttributeName: aws.String("content"),
 				AttributeType: dynamodbTypes.ScalarAttributeTypeS,
 			},
 		},
 		KeySchema: []dynamodbTypes.KeySchemaElement{
 			{
-				AttributeName: aws.String("Account"),
+				AttributeName: aws.String("account"),
 				KeyType:       dynamodbTypes.KeyTypeHash,
 			},
 			{
-				AttributeName: aws.String("Time"),
+				AttributeName: aws.String("timestamp"),
 				KeyType:       dynamodbTypes.KeyTypeRange,
 			},
 		},
@@ -91,11 +91,11 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 				IndexName: aws.String("AccountContent"),
 				KeySchema: []dynamodbTypes.KeySchemaElement{
 					{
-						AttributeName: aws.String("Account"),
+						AttributeName: aws.String("account"),
 						KeyType:       dynamodbTypes.KeyTypeHash,
 					},
 					{
-						AttributeName: aws.String("Content"),
+						AttributeName: aws.String("content"),
 						KeyType:       dynamodbTypes.KeyTypeRange,
 					},
 				},
@@ -120,9 +120,36 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	// QUEUE
 	var sqsClient *sqs.Client = sqs.NewFromConfig(cfg)
 
+	// Gives SNS permission to send messages to the new channel's queue.
+	policyMetaTopicSendMessageQueue := map[string]interface{}{
+		"Version": "2012-10-17",
+		"Statement": []interface{}{
+			map[string]interface{}{
+				"Effect":   "Allow",
+				"Action":   "sqs:SendMessage",
+				"Resource": "*",
+				"Principal": map[string]interface{}{
+					"Service": []string{
+						"sns.amazonaws.com",
+					},
+				},
+			},
+		},
+	}
+
+	cleanPolicyMetaTopicSendMessageQueue, err := json.Marshal(policyMetaTopicSendMessageQueue)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed to json marshal policy to allow metaTopic to send messages to new channel's queue: %v", err)
+	}
+	fmt.Printf("cleanPolicyMetaTopicSendMessageQueue %v", cleanPolicyMetaTopicSendMessageQueue)
+	fmt.Printf("Policy: %v\n", string(cleanPolicyMetaTopicSendMessageQueue))
+
 	// Create SQS queue for new channel.
 	var createQueueInput *sqs.CreateQueueInput = &sqs.CreateQueueInput{
 		QueueName: aws.String(choiceName + "Channel" + "Queue"),
+		Attributes: map[string]string{
+			"Policy": string(cleanPolicyMetaTopicSendMessageQueue),
+		},
 	}
 
 	createQueueResult, err := sqsClient.CreateQueue(ctx, createQueueInput)
@@ -173,7 +200,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 
 	// Filter policy for subscription from queue to MetaTopic so as to only allow messages that specify the new channel.
 	rawNewFilter := map[string]interface{}{
-		"Channel": []string{choiceName},
+		"channel": []string{choiceName},
 	}
 
 	cleanNewFilter, err := json.Marshal(rawNewFilter)

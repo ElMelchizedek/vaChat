@@ -99,6 +99,13 @@ export class BackendStack extends cdk.Stack {
             sourceArn: `arn:aws:sqs:${this.region}:${this.account}:*`,
         })
                 
+        // SNS topic that will filter messages from web server to correct queue for backend pipeline.
+        const metaTopic = customSNS.newMetaTopic({
+            name: "metaTopic",
+            fifo: false,
+            scope: this,
+            function: functionSendMessage,
+        });
 
         // DynamoDB table for info about every channel.
         const tableMetaChannel = customDynamoDB.newMetaChannelTable({
@@ -107,13 +114,6 @@ export class BackendStack extends cdk.Stack {
             scope: this,
         });
 
-        // SNS topic that will filter messages from web server to correct queue for backend pipeline.
-        const metaTopic = customSNS.newMetaTopic({
-            name: "metaTopic",
-            fifo: false,
-            scope: this,
-            function: functionSendMessage,
-        });
 
         // Make metaTopic's ARN a parameter, to be read by the SendMessage lambda so that it can publish to it.
         const metaTopicARN = customSSM.newGenericParamTopicARN({
