@@ -27,10 +27,11 @@ if(!TOPIC_ARN) {
 // maps session IDs to Client handlers
 const sessions = new Map<string, Client>()
 
-const channelInfo = Object.entries(await getChannels() || {})
+const channelInfo = await getChannels() || []
 
-for(const [_, arn] of channelInfo)
-    await subscribeToChannel(arn)
+for(const channel of channelInfo) {
+    await subscribeToChannel(channel.EndpointTopicARN.Value)
+}
 
 if(channelInfo.length === 0) {
     // create default Main channel
@@ -43,7 +44,12 @@ if(channelInfo.length === 0) {
     // subscribe to Main
     await subscribeToChannel(newChannel.EndpointTopicARN)
 
-    channelInfo.push([newChannel.Name, newChannel.EndpointTopicARN])
+    channelInfo.push({
+        Name: { Value: newChannel.Name },
+        EndpointTopicARN: { Value: newChannel.EndpointTopicARN },
+        QueueARN: { Value: newChannel.QueueARN },
+        TableARN: { Value: newChannel.TableARN }
+    })
 }
 
 new Elysia()
@@ -80,9 +86,8 @@ new Elysia()
                         <select id="channel-select" name="channel" hx-get="/changeChannel" hx-trigger="change">
                             {
                                 channelInfo.map(
-                                    ([channel]) => (
-                                        <option value={channel}>{channel}</option>
-                                    )
+                                    (channel) =>
+                                        <option value={channel.Name.Value}>{channel.Name.Value}</option>
                                 )
                             }
                         </select>

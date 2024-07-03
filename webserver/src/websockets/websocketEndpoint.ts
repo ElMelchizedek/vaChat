@@ -1,8 +1,8 @@
 import { Elysia } from "elysia"
 import { Client } from "./client"
-import { submitMessage } from "../backend-integration"
+import { submitMessage, ChannelInfo } from "../backend-integration"
 
-export const ws = (sessions: Map<string, Client>, channelInfo: [string, string][]) =>
+export const ws = (sessions: Map<string, Client>, channelInfo: ChannelInfo) =>
     (app: Elysia) =>
         app.ws(
             '/ws-main', 
@@ -16,8 +16,8 @@ export const ws = (sessions: Map<string, Client>, channelInfo: [string, string][
                         sessionId,
                         new Client(
                             ws.send,
-                            channelInfo.map(([channel]) => channel),
-                            channelInfo[0][0]
+                            channelInfo.map(({ Name }) => Name.Value),
+                            channelInfo[0].Name.Value
                         )
                     )
 
