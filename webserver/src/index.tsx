@@ -4,7 +4,8 @@ import { html } from '@elysiajs/html'
 import {
     snsIngest,
     subscribeToChannel,
-    getChannels
+    getChannels,
+    createChannel
 } from './backend-integration'
 
 import {
@@ -30,6 +31,20 @@ const channelInfo = Object.entries(await getChannels() || {})
 
 for(const [_, arn] of channelInfo)
     await subscribeToChannel(arn)
+
+if(channelInfo.length === 0) {
+    // create default Main channel
+    const newChannel = await createChannel("Main")
+
+    if(!newChannel) {
+        throw new Error("Failed to create Main channel")
+    }
+
+    // subscribe to Main
+    await subscribeToChannel(newChannel.EndpointTopicARN)
+
+    channelInfo.push([newChannel.Name, newChannel.EndpointTopicARN])
+}
 
 new Elysia()
     .use(html())
