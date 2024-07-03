@@ -14,13 +14,10 @@ import {
 } from './websockets'
 
 const {
-    TOPIC_ARN,
     WEBSERVER_PORT: port
 } = process.env
 
-if(!TOPIC_ARN) {
-    throw new Error("TOPIC_ARN environment variable not set")
-} else if(!port) {
+if(!port) {
     throw new Error("WEBSERVER_PORT environment variable not set")
 }
 
