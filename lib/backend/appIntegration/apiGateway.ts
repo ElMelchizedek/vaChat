@@ -16,9 +16,11 @@ export function newMiddlewareGatewayAPI(props: Props) {
     // This should be automated eventually.
     const integrationSendMessageLambda = new cdk.aws_apigatewayv2_integrations.HttpLambdaIntegration(
         "idHttpLambdaIntegration".concat(props.functions[0].name), props.functions[0].function);
-    
     const integrationGetChannelLambda = new cdk.aws_apigatewayv2_integrations.HttpLambdaIntegration(
         "idHttpLambdaIntegration".concat(props.functions[1].name), props.functions[1].function);
+    const integrationCreateChannelLambda = new cdk.aws_apigatewayv2_integrations.HttpLambdaIntegration(
+        "idHttpLambdaIntegration".concat(props.functions[2].name), props.functions[2].function);
+    
 
     const newAPI = new cdk.aws_apigatewayv2.HttpApi(props.scope, "idHttpApi".concat(props.name));
     //Also should be automated.
@@ -28,13 +30,19 @@ export function newMiddlewareGatewayAPI(props: Props) {
         integration: integrationSendMessageLambda,
     });
     newAPI.addRoutes({
-            path: "/getChannel",
-            methods: [cdk.aws_apigatewayv2.HttpMethod.POST],
-            integration: integrationGetChannelLambda,
+        path: "/getChannel",
+        methods: [cdk.aws_apigatewayv2.HttpMethod.GET],
+        integration: integrationGetChannelLambda,
+    });
+    newAPI.addRoutes({
+        path: "/createChannel",
+        methods: [cdk.aws_apigatewayv2.HttpMethod.POST],
+        integration: integrationCreateChannelLambda,
     });
 
     return {
-        integration: integrationSendMessageLambda,
+        // Automate this as well.
+        integrations: [integrationSendMessageLambda, integrationGetChannelLambda, integrationCreateChannelLambda],
         api: newAPI,
     };
 }

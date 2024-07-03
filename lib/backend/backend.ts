@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as customLambda from "./compute/lambda";
-import * as customSQS from "./appIntegration/sqs";
 import * as customDynamoDB from "./database/dynamodb";
 import * as customSNS from "./appIntegration/sns";
 import * as customSSM from "../common/management/ssm";
@@ -24,24 +23,87 @@ export class BackendStack extends cdk.Stack {
             name: "getChannel",
             scope: this,
         })
-
-        // The ONE queue for testing.
-        const queueChannel = customSQS.newChannelQueue({
-            name: "Main",
-            function: functionHandleMessageQueue,
+        const functionCreateChannel = customLambda.newGoLambda({
+            name: "createChannel",
             scope: this,
-        });
-        
-        // Make the channel queue the event source for HandleMessageQueue.
-        functionHandleMessageQueue.addEventSource(
-            new cdk.aws_lambda_event_sources.SqsEventSource(queueChannel)
-        );
+        })
 
-        // DynamoDB table for a channel.
-        const tableChannelMain = customDynamoDB.newChannelTable({
-            name: "Main",
-            function: functionHandleMessageQueue,
-            scope: this
+        // Give lambdas permissions where necessary.
+        const permissionsCreateChannel = new cdk.aws_iam.PolicyStatement({
+            actions: [
+                // DynamoDB
+                'dynamodb:CreateTable',
+                'dynamodb:PutItem',
+                // SQS
+                'sqs:CreateQueue',
+                'sqs:GetQueueAttributes',
+                // SNS
+                'sns:ListTopics',
+                'sns:Subscribe',
+                'sns:CreateTopic',
+                // SSM
+                'ssm:GetParameter',
+                'ssm:GetParameters',
+                'ssm:GetParametersByPath',
+                // Lambda
+                'lambda:CreateEventSourceMapping'
+            ],
+            resources: ['*'],
+        });
+        functionCreateChannel.addToRolePolicy(permissionsCreateChannel);
+
+        const permissionsSendMessage = new cdk.aws_iam.PolicyStatement({
+            actions: [
+                // SSM
+                'ssm:GetParameter',
+                'ssm:GetParameters',
+                'ssm:GetParametersByPath',
+            ],
+            resources: ['*'],
+        })
+        functionSendMessage.addToRolePolicy(permissionsSendMessage);
+
+        const permissionsGetChannel = new cdk.aws_iam.PolicyStatement({
+            actions: [
+                // DynamoDB
+                'dynamodb:Scan',
+            ],
+            resources: ['*'],
+        });
+        functionGetChannel.addToRolePolicy(permissionsGetChannel);
+
+        const permissionsHandleMessageQueue = new cdk.aws_iam.PolicyStatement({
+            actions: [
+                // SSM
+                'ssm:GetParameter',
+                'ssm:GetParameters',
+                'ssm:GetParametersByPath',
+                // SNS
+                'sns:Publish',
+                // DynamoDB
+                'dynamodb:PutItem',
+                // SQS
+                'sqs:ReceiveMessage',
+                'sqs:DeleteMessage',
+                'sqs:GetQueueAttributes',
+            ],
+            resources: ['*'],
+        });
+        functionHandleMessageQueue.addToRolePolicy(permissionsHandleMessageQueue);
+        
+        // Add resource-based policy to handleMessageQueue to allow any SQS queue to invoke it.
+        functionHandleMessageQueue.addPermission("AllowSQSTrigger", {
+            principal: new cdk.aws_iam.ServicePrincipal("sqs.amazonaws.com"),
+            action: "lambda:invokeFunction",
+            sourceArn: `arn:aws:sqs:${this.region}:${this.account}:*`,
+        })
+                
+        // SNS topic that will filter messages from web server to correct queue for backend pipeline.
+        const metaTopic = customSNS.newMetaTopic({
+            name: "metaTopic",
+            fifo: false,
+            scope: this,
+            function: functionSendMessage,
         });
 
         // DynamoDB table for info about every channel.
@@ -49,17 +111,8 @@ export class BackendStack extends cdk.Stack {
             name: "MetaChannelTable",
             function: functionGetChannel,
             scope: this,
-        })
-
-        // SNS topic that will filter messages from web server to correct queue for backend pipeline.
-        const metaTopic = customSNS.newMetaTopic({
-            name: "metaTopic",
-            subscribers: [queueChannel],
-            subscriberNicknames: ["Main"],
-            fifo: false,
-            scope: this,
-            function: functionSendMessage,
         });
+
 
         // Make metaTopic's ARN a parameter, to be read by the SendMessage lambda so that it can publish to it.
         const metaTopicARN = customSSM.newGenericParamTopicARN({
@@ -68,26 +121,16 @@ export class BackendStack extends cdk.Stack {
             functions: [functionSendMessage],
             scope: this,
             type: "metaTopic",
-        })
-
-        // The ONE endpoint SNS topic.
-        const topicChannel = customSNS.newEndpointTopic({
-            name: "channelTopicMain",
-            fifo: false,
-            scope: this,
-            function: functionHandleMessageQueue,
         });
 
-        // The ONE SNS ARN endpoint paramater.
-        const channelTopicARN = customSSM.newGenericParamTopicARN({
-            name: "Main",
-            topic: topicChannel,
-            functions: [functionHandleMessageQueue],
+        // Make the handleMessageQueue lambda's ARN a parameter, to be read by the createChannel lambda to add an event source to it.
+        const handleMessageQueueARN = customSSM.newGenericParamLambdaARN({
+            name: "handleMessageQueue",
+            lambda: functionHandleMessageQueue,
             scope: this,
-            type: "channelTopic",
         });
 
-        const {integration, api} = customAPI.newMiddlewareGatewayAPI({
+        const {integrations, api} = customAPI.newMiddlewareGatewayAPI({
             name: "GatewayWebserverAPI",
             functions: [
                 {
@@ -97,6 +140,10 @@ export class BackendStack extends cdk.Stack {
                 {
                     name: "getChannel",
                     function: functionGetChannel,
+                },
+                {
+                    name: "createChannel",
+                    function: functionCreateChannel,
                 }
             ],
             scope: this,
