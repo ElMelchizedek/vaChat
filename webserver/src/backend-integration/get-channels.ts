@@ -13,15 +13,24 @@ export type ChannelInfo = {
     TableARN: { Value: string }
 }[]
 
-export const getChannels = async () =>
-    console.log(`${url}/getChannel?type=all`)
-    await fetch(`${url}/getChannel?type=all`, { method: "GET" })
-        .then(response => {
-            console.log(response)
-            const r = response.json()
-            console.log(JSON.stringify(r))
+export const getChannels = async () => {
+    const requestURL: string = `${url}/getChannel?type=all`;
+    console.log(`URL\n${requestURL}\n`);
+    try {
+        const response = await fetch (requestURL, {method: "GET"});
+        if (!response.ok) {
+            throw new Error(`Failed to perform GET request on /getChannel: ${response}`);
+        }
+        console.log("\nResponse\n", response);
 
-            return r
-        })
-        .then(data => data.channels as ChannelInfo)
-        .catch(error => console.error(error))
+        const json = await response.json();
+        console.log("\nJSON\n", json);
+        return json;
+    } catch (error) {
+        let message = "Unknown Error";
+        if (error instanceof Error) {
+            message = error.message
+        }
+        console.log(message)
+    }
+}
