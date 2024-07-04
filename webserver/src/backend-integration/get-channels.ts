@@ -14,8 +14,10 @@ export type ChannelInfo = {
 }[]
 
 export const getChannels = async () =>
+    console.log(`${url}/getChannel?type=all`)
     await fetch(`${url}/getChannel?type=all`, { method: "GET" })
         .then(response => {
+            console.log(response)
             const r = response.json()
             console.log(JSON.stringify(r))
 
