@@ -93,7 +93,7 @@ export const snsIngest = async (updateClients: (message: Notification) => void) 
 
                         updateClients(message)
 
-                        console.log("Message received: ", message.Message)
+                        console.log("Message received from sns: ", message.Message)
 
                         break
                     }
