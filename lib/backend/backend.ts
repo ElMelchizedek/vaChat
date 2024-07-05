@@ -27,6 +27,10 @@ export class BackendStack extends cdk.Stack {
             name: "createChannel",
             scope: this,
         })
+        const functionDeleteChannel = customLambda.newGoLambda({
+            name: "deleteChannel",
+            scope: this,
+        })
 
         // Give lambdas permissions where necessary.
         const permissionsCreateChannel = new cdk.aws_iam.PolicyStatement({
@@ -130,6 +134,7 @@ export class BackendStack extends cdk.Stack {
             scope: this,
         });
 
+        // TODO: Automate definition of functions array.
         const {integrations, api} = customAPI.newMiddlewareGatewayAPI({
             name: "GatewayWebserverAPI",
             functions: [
@@ -144,6 +149,10 @@ export class BackendStack extends cdk.Stack {
                 {
                     name: "createChannel",
                     function: functionCreateChannel,
+                },
+                {
+                    name: "deleteChannel",
+                    function: functionDeleteChannel,
                 }
             ],
             scope: this,
