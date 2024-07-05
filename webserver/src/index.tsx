@@ -80,7 +80,7 @@ new Elysia()
                     <body  hx-ext="ws" ws-connect="/ws-main">
                         <h1>Message others</h1>
 
-                        <select id="channel-select" name="channel" hx-get="/changeChannel" hx-trigger="change">
+                        <select id="channel-select" name="channel" hx-post="/changeChannel" hx-trigger="change">
                             {
                                 channelInfo.map(
                                     (channel) =>
@@ -105,8 +105,9 @@ new Elysia()
             const sessionId = cookie.session.value
 
             const client = sessions.get(sessionId)!
-            client.clearHistory()
             client.subscribedTo = query.channel
+
+            return <div id="messages" hx-swap-oob="outerHTML" />
         }, 
         {
             query: t.Object({
