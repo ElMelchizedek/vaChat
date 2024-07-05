@@ -40,7 +40,8 @@ export const ws = (sessions: Map<string, Client>, channelInfo: ChannelInfo) =>
                         channel: channel,
                         account: "1",
                         timestamp: Date.now().toString(),
-                        message
+                        message,
+                        topic: channelInfo.find(({ Name }) => Name.Value === channel)!.EndpointTopicARN.Value
                     })))
                 },
 

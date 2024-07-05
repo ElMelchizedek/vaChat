@@ -11,7 +11,8 @@ export const submitMessage = async (
             channel: string, 
             account: string, 
             timestamp: string, 
-            message: string 
+            message: string,
+            topic: string
         }
     ) => { 
         const requestURL: string = `${url}/sendMessage`;
