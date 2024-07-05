@@ -45,7 +45,7 @@ func sendMsg(ctx context.Context, contents MessageContents, ARN string) {
 				StringValue: aws.String(contents.Timestamp),
 			},
 			"topic": {
-				DataType:    aws.String("Topic"),
+				DataType:    aws.String("String"),
 				StringValue: aws.String(contents.Topic),
 			},
 		},

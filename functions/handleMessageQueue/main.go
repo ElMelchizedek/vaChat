@@ -48,7 +48,7 @@ func sendToTopic(ctx context.Context, snsClient *sns.Client, body SQSMessage) er
 	messageTopic := body.MessageAttributes.Topic.Value
 
 	_, err := snsClient.Publish(ctx, &sns.PublishInput{
-		TargetArn: aws.String(messageTopic),
+		TargetArn: &messageTopic,
 		Message:   &messageContent,
 		MessageAttributes: map[string]snstypes.MessageAttributeValue{
 			"account": {
