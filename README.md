@@ -65,9 +65,10 @@ nil
 ### v0.1.0 (COMPLETE)
 * Rudimentary and basic one-to-one, single-channel messaging functionality.
 ### v0.2.0
-* Ability to create and choose channels.
+* Ability to manage (CRUD) channels from the webserver, with channel-specific message history and client connections.
 ### v0.3.0
-* Integration of webserver code into a CDK-conducted ECS deployment.
+* Integrate webserver code into the file structure. 
+* Will require setting up the code to be managed and deployed by CDK within an ECS cluster.
 ### v0.4.0
-* Authentication with accounts.
-* Account-level control of access to channels by their creators.
+* Provide the ability to differentiate connecting users by a user-managed account.
+* Allow for user-control of their access to channels (self-managed subscriptions).
