@@ -25,7 +25,7 @@ export const getChannels = async () => {
 
         const json = await response.json();
         console.log("\nJSON\n", json);
-        return json;
+        return json as ChannelInfo;
     } catch (error) {
         let message = "Unknown Error";
         if (error instanceof Error) {
