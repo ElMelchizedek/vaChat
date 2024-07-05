@@ -18,6 +18,7 @@ type MessageContents struct {
 	Channel   string `json:"channel"`
 	Account   string `json:"account"`
 	Timestamp string `json:"timestamp"`
+	Topic     string `json:"topic"`
 }
 
 func sendMsg(ctx context.Context, contents MessageContents, ARN string) {
@@ -42,6 +43,10 @@ func sendMsg(ctx context.Context, contents MessageContents, ARN string) {
 			"timestamp": {
 				DataType:    aws.String("Number"),
 				StringValue: aws.String(contents.Timestamp),
+			},
+			"topic": {
+				DataType:    aws.String("Topic"),
+				StringValue: aws.String(contents.Topic),
 			},
 		},
 	}
@@ -95,6 +100,7 @@ func handler(ctx context.Context, event json.RawMessage) {
 		Channel:   body["channel"].(string),
 		Account:   body["account"].(string),
 		Timestamp: body["timestamp"].(string),
+		Topic:     body["topic"].(string),
 	}
 
 	metaTopicARN := getMetaTopicARN(ctx)

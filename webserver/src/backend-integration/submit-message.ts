@@ -17,7 +17,7 @@ export const submitMessage = async (
         const requestURL: string = `${url}/sendMessage`;
         console.log(`URL\n${requestURL}\n`);
         try {
-            console.log("message before send: ", message);
+            await console.log("message before send: ", message);
             const response = await fetch(requestURL, {
                 method: "POST",
                 headers: {
@@ -25,14 +25,14 @@ export const submitMessage = async (
                 },
                 body: JSON.stringify(message),
             });
-            if (!response.ok) {
+            if (await !response.ok) {
                 throw new Error(`Failed to perform POST request on /sendMessage: ${response}`);
             }
-            console.log("\nResponse\n", response);
+            await console.log("\nResponse\n", response);
             const json = await response.json();
-            console.log("\nJSON\n", json);
+            await console.log("\nJSON\n", json);
             const strinigified = await JSON.stringify(json);
-            console.log("\nStringified\n", strinigified);
+            await console.log("\nStringified\n", strinigified);
             return json;
             } catch (error) {
                 let message = "Unknown Error";
