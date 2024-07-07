@@ -3,7 +3,9 @@ import { html } from '@elysiajs/html'
 
 import {
     snsIngest,
-    subscribeToChannel
+    subscribeToChannel,
+    getChannels,
+    createChannel
 } from './backend-integration'
 
 import {
@@ -11,15 +13,48 @@ import {
     Client
 } from './websockets'
 
+const {
+    WEBSERVER_PORT: port
+} = process.env
+
+if(!port) {
+    throw new Error("WEBSERVER_PORT environment variable not set")
+}
+
 // maps session IDs to Client handlers
 const sessions = new Map<string, Client>()
+
+const channelInfo = await getChannels() || []
+
+for(const channel of channelInfo) {
+    await subscribeToChannel(channel.EndpointTopicARN.Value)
+}
+
+if(channelInfo.length === 0) {
+    // create default Main channel
+    const newChannel = await createChannel("Main")
+
+    if(!newChannel) {
+        throw new Error("Failed to create Main channel")
+    }
+
+    // subscribe to Main
+    await subscribeToChannel(newChannel.EndpointTopicARN)
+
+    channelInfo.push({
+        Name: { Value: newChannel.Name },
+        EndpointTopicARN: { Value: newChannel.EndpointTopicARN },
+        QueueARN: { Value: newChannel.QueueARN },
+        TableARN: { Value: newChannel.TableARN }
+    })
+}
 
 new Elysia()
     .use(html())
 
     .get(
         '/', 
-        ({ set }) => {
+        async ({ set }) => {
             // TODO: sessionId is not unique for individual tabs.
             // ....: Need to generate a unique ID for each tab.
             // ....: how get this information to a normal hx get...
@@ -45,9 +80,18 @@ new Elysia()
                     <body  hx-ext="ws" ws-connect="/ws-main">
                         <h1>Message others</h1>
 
+                        <select id="channel-select" name="channel" hx-get="/changeChannel" hx-trigger="change">
+                            {
+                                channelInfo.map(
+                                    (channel) =>
+                                        <option value={channel.Name.Value}>{channel.Name.Value}</option>
+                                )
+                            }
+                        </select>
+
                         <div id="messages"></div>
 
-                        <form id="write-message" ws-send>
+                        <form id="write-message" hx-include="#channel-select" ws-send>
                             <input name="message" />
                         </form>
                     </body>
@@ -56,7 +100,25 @@ new Elysia()
         }
     )
 
-    .use(ws(sessions))
+    .get('/changeChannel', 
+        async ({ query, cookie }) => {
+            const sessionId = cookie.session.value
+
+            const client = sessions.get(sessionId)!
+            client.clearHistory()
+            client.subscribedTo = query.channel
+        }, 
+        {
+            query: t.Object({
+                channel: t.String()
+            }),
+            cookie: t.Object({
+                session: t.String()
+            })
+        }
+    )
+
+    .use(ws(sessions, channelInfo))
 
     .use(
         snsIngest(
@@ -64,17 +126,16 @@ new Elysia()
             (message) => {
                 sessions.forEach(
                     (client) => {
-                        client.sendMessage(
-                            message.MessageAttributes.account.Value, 
-                            message.Message
-                        )
+                        if (client.subscribedTo === message.MessageAttributes.channel.Value) {
+                            client.sendMessage(
+                                message.MessageAttributes.account.Value, 
+                                message.Message
+                            )
+                        }
                     }
                 )
             }
         )
     )
 
-    .listen(3000)
-
-console.log("Subscribing to channel")
-console.log(JSON.stringify(await subscribeToChannel(process.env.TOPIC_ARN!)))
+    .listen(+port)

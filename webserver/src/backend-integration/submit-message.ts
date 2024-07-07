@@ -1,3 +1,11 @@
+const {
+    API_URL: url
+} = process.env
+
+if(!url) {
+    throw new Error("API_URL environment variable not set")
+}
+
 export const submitMessage = async (
         message: { 
             channel: string, 
@@ -7,7 +15,7 @@ export const submitMessage = async (
         }
     ) => 
         await fetch(
-            process.env.SUBMIT_URL!, 
+            `${url}/sendMessage/`, 
             {
                 method: "POST",
                 headers: {
