@@ -42,13 +42,13 @@ type SQSEvent struct {
 
 func sendToTopic(ctx context.Context, snsClient *sns.Client, body SQSMessage) error {
 	messageContent := body.Message
-	// messageChannel := body.MessageAttributes.Channel.Value
+	messageChannel := body.MessageAttributes.Channel.Value
 	messageAccount := body.MessageAttributes.Account.Value
 	messageTime := body.MessageAttributes.Timestamp.Value
 	messageTopic := body.MessageAttributes.Topic.Value
 
 	_, err := snsClient.Publish(ctx, &sns.PublishInput{
-		TargetArn: &messageTopic,
+		TargetArn: aws.String(messageTopic),
 		Message:   &messageContent,
 		MessageAttributes: map[string]snstypes.MessageAttributeValue{
 			"account": {
@@ -58,6 +58,10 @@ func sendToTopic(ctx context.Context, snsClient *sns.Client, body SQSMessage) er
 			"timestamp": {
 				DataType:    aws.String("Number"),
 				StringValue: aws.String(messageTime),
+			},
+			"channel": {
+				DataType:    aws.String("String"),
+				StringValue: aws.String(messageChannel),
 			},
 		},
 	})
