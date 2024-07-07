@@ -10,6 +10,7 @@ export class BackendStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
         
+        // TO DO: Automate this.
         // Lambdas.
         const functionHandleMessageQueue = customLambda.newGoLambda({
             name: "handleMessageQueue",
@@ -31,7 +32,12 @@ export class BackendStack extends cdk.Stack {
             name: "deleteChannel",
             scope: this,
         })
+        const functionUpdateChannel = customLambda.newGoLambda({
+            name: "updateChannel",
+            scope: this,
+        })
 
+        // TO DO: Automate this.
         // Give lambdas permissions where necessary.
         const permissionsCreateChannel = new cdk.aws_iam.PolicyStatement({
             actions: [
@@ -169,6 +175,10 @@ export class BackendStack extends cdk.Stack {
                 {
                     name: "deleteChannel",
                     function: functionDeleteChannel,
+                },
+                {
+                    name: "updateChannel",
+                    function: functionUpdateChannel,
                 }
             ],
             scope: this,

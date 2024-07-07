@@ -22,6 +22,8 @@ export function newMiddlewareGatewayAPI(props: Props) {
         "idHttpLambdaIntegration".concat(props.functions[2].name), props.functions[2].function);
     const integrationDeleteChannelLambda = new cdk.aws_apigatewayv2_integrations.HttpLambdaIntegration(
         "idHttpLambdaIntegration".concat(props.functions[3].name), props.functions[3].function);
+    const integrationUpdateChannelLambda = new cdk.aws_apigatewayv2_integrations.HttpLambdaIntegration(
+        "idHttpLambdaIntegration".concat(props.functions[4].name), props.functions[4].function);
     
 
     const newAPI = new cdk.aws_apigatewayv2.HttpApi(props.scope, "idHttpApi".concat(props.name));
@@ -44,12 +46,17 @@ export function newMiddlewareGatewayAPI(props: Props) {
     newAPI.addRoutes({
         path: "/deleteChannel",
         methods: [cdk.aws_apigatewayv2.HttpMethod.POST],
-        integration: integrationDeleteChannelLambda
-    })
+        integration: integrationDeleteChannelLambda,
+    });
+    newAPI.addRoutes({
+        path: "/updateChannel",
+        methods: [cdk.aws_apigatewayv2.HttpMethod.POST],
+        integration: integrationUpdateChannelLambda,
+    });
 
     return {
         // Automate this as well.
-        integrations: [integrationSendMessageLambda, integrationGetChannelLambda, integrationCreateChannelLambda, integrationDeleteChannelLambda],
+        integrations: [integrationSendMessageLambda, integrationGetChannelLambda, integrationCreateChannelLambda, integrationDeleteChannelLambda, integrationUpdateChannelLambda],
         api: newAPI,
     };
 }
