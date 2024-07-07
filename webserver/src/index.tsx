@@ -80,7 +80,11 @@ new Elysia()
                     <body  hx-ext="ws" ws-connect="/ws-main">
                         <h1>Message others</h1>
 
-                        <select id="channel-select" name="channel" hx-get="/changeChannel" hx-trigger="change" hx-target="#messages">
+                        <select id="channel-select" name="channel"
+                            hx-get="/changeChannel"
+                            hx-trigger="change"
+                            hx-target="#messages"
+                            hx-swap="outerHTML">
                             {
                                 channelInfo.map(
                                     (channel) =>
