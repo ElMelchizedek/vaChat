@@ -4,27 +4,6 @@
 
 ### Backend
 
-#### /createChannel
-
-**Input**
-
-```json
-{
-    "name": string
-}
-```
-
-**Output**
-
-```json
-{
-    "EndpointTopicARN": "arn:aws:sns:{region}:{account}:{Name}EndpointTopic",
-    "Name": string,
-    "QueueARN": "arn:aws:sqs:{region}:{account}:{Name}ChannelQueue",
-    "TableARN": "arn:aws:dynamodb:{region}:{acount}:table/{Name}table"
-}
-```
-
 #### /getChannel
 
 **Input**
@@ -53,6 +32,35 @@
     },
     ...
 ]
+```
+
+#### /createChannel
+**Input**
+```json
+{
+    "name": string
+}
+```
+**Output**
+```json
+{
+    "EndpointTopicARN": "arn:aws:sns:{region}:{account}:{Name}EndpointTopic",
+    "Name": string,
+    "QueueARN": "arn:aws:sqs:{region}:{account}:{Name}ChannelQueue",
+    "TableARN": "arn:aws:dynamodb:{region}:{acount}:table/{Name}table"
+}
+```
+
+#### /deleteChannel
+**Input**
+```json
+{
+    "name": string
+}
+```
+**Output**
+```
+nil
 ```
 
 #### /sendMessage
