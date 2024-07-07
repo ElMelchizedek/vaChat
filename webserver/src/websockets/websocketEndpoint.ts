@@ -33,14 +33,15 @@ export const ws = (sessions: Map<string, Client>, channelInfo: ChannelInfo) =>
                 async message(ws, content) {
                     const { message, channel } = content as { message: string, channel: string }
 
-                    console.log("Message received: ", message)
+                    console.log("Message received from user: ", message)
 
                     // submit new message to backend system via API gateway
                     console.log("Submit message response:", JSON.stringify(await submitMessage({
                         channel: channel,
                         account: "1",
                         timestamp: Date.now().toString(),
-                        message
+                        message,
+                        topic: channelInfo.find(({ Name }) => Name.Value === channel)!.EndpointTopicARN.Value
                     })))
                 },
 

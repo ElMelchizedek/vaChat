@@ -73,16 +73,17 @@ export const snsIngest = async (updateClients: (message: Notification) => void) 
             `/${path}`, 
             async ({ headers, body }) => {
                 const messageType = headers["x-amz-sns-message-type"]
-
+                console.log(body);
                 switch(messageType) {
                     case "SubscriptionConfirmation": {
                         const message = JSON.parse(body) as SubscriptionConfirmation
             
-                        await sns.confirmSubscription({
+                        const subscriptionConfirmation = await sns.confirmSubscription({
                             Token: message.Token,
                             TopicArn: message.TopicArn
                         })
 
+                        console.log("Subscription Confirmation Message:\n", JSON.stringify(subscriptionConfirmation))
                         console.log("Subscription confirmed")
 
                         break
@@ -91,9 +92,11 @@ export const snsIngest = async (updateClients: (message: Notification) => void) 
                     case "Notification": {
                         const message = JSON.parse(body) as Notification
 
+                        console.log("Before Update Client\n");
                         updateClients(message)
+                        console.log("After Update Client\n");
 
-                        console.log("Message received: ", message.Message)
+                        console.log("SNS Message received: ", message.Message)
 
                         break
                     }
