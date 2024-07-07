@@ -94,6 +94,22 @@ export class BackendStack extends cdk.Stack {
             resources: ['*'],
         });
         functionHandleMessageQueue.addToRolePolicy(permissionsHandleMessageQueue);
+
+        const permissionsDeleteChannel = new cdk.aws_iam.PolicyStatement({
+            actions: [
+                // DynamoDB
+                'dynamodb:DeleteTable',
+                'dynamodb:DeleteItem',
+                // SNS
+                'sns:ListTopics',
+                'sns:DeleteTopic',
+                // SQS
+                'sqs:GetQueueUrl',
+                'sqs:DeleteQueue',
+            ],
+            resources: ['*'],
+        });
+        functionDeleteChannel.addToRolePolicy(permissionsDeleteChannel);
         
         // Add resource-based policy to handleMessageQueue to allow any SQS queue to invoke it.
         functionHandleMessageQueue.addPermission("AllowSQSTrigger", {
