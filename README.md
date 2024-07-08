@@ -47,6 +47,27 @@
 }
 ```
 
+#### /updateChannel
+**Input**
+```json
+{
+    "channel": string,
+    "account": string(number),
+    "request": {
+        "action": string,
+        "parameters": [
+            {
+                "Key1": "Value1",
+            },
+            {
+                "Key2": "Value2",
+            },
+        ]
+    }
+}
+```
+
+
 #### /deleteChannel
 **Input**
 ```json
