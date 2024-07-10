@@ -14,23 +14,22 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	lambdaService "github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
 // Automates frequent error handling.
 func errorHandle(message string, err error, format bool) (events.APIGatewayProxyResponse, error) {
-	if err != nil {
-		if format {
-			fmt.Printf("%v %v", events.APIGatewayCustomAuthorizerResponse{}, fmt.Errorf(message, ": %v", err))
-			os.Exit(1)
-		} else {
-			fmt.Printf("ERROR: %v\n", message)
-			fmt.Printf("%v\n", events.APIGatewayCustomAuthorizerResponse{})
-			os.Exit(1)
-		}
+	if format && err != nil {
+		fmt.Printf("%v %v", events.APIGatewayCustomAuthorizerResponse{}, fmt.Errorf(message, ": %v", err))
+		os.Exit(1)
+	} else if !format {
+		fmt.Printf("ERROR: %v\n", message)
+		fmt.Printf("%v\n", events.APIGatewayCustomAuthorizerResponse{})
+		os.Exit(1)
 	} else {
-		fmt.Println("Inccorect use of errorHandle.")
 		return events.APIGatewayProxyResponse{}, nil
 	}
 	fmt.Println("Unknown error regarding errorHandle()")
@@ -63,6 +62,8 @@ func handleDeleteChannelRequest(ctx context.Context, request events.APIGatewayPr
 	var dynamoClient *dynamodb.Client = dynamodb.NewFromConfig(cfg)
 	var sqsClient *sqs.Client = sqs.NewFromConfig(cfg)
 	var snsClient *sns.Client = sns.NewFromConfig(cfg)
+	var lambdaClient *lambdaService.Client = lambdaService.NewFromConfig(cfg)
+	var ssmClient *ssm.Client = ssm.NewFromConfig(cfg)
 
 	// TABLE
 	// Delete channel's table.
@@ -122,6 +123,38 @@ func handleDeleteChannelRequest(ctx context.Context, request events.APIGatewayPr
 	}
 	_, err = dynamoClient.DeleteItem(ctx, deleteMetaChannelTableEntryInput)
 	errorHandle("failed to remove channe's entry from MetaChannelTable", err, true)
+
+	// LAMBDA
+	// Get ARN of the handleMessageQueue lambda.
+	var getParameterHandleMessageQueueARNInput *ssm.GetParameterInput = &ssm.GetParameterInput{
+		Name: aws.String("handleMessageQueueARN"),
+	}
+	getParameterHandleMessageQueueARNResult, err := ssmClient.GetParameter(ctx, getParameterHandleMessageQueueARNInput)
+	errorHandle("failed to get the lambda messageHandleQueue's ARN from parameter", err, true)
+
+	// Get the event source mapping between the handleMessageQueue lambad and the now non-existent SQS queue.
+	var getEventSourceMappingInput *lambdaService.ListEventSourceMappingsInput = &lambdaService.ListEventSourceMappingsInput{
+		FunctionName: getParameterHandleMessageQueueARNResult.Parameter.Value,
+	}
+	getEventSourceMappingResult, err := lambdaClient.ListEventSourceMappings(ctx, getEventSourceMappingInput)
+	errorHandle("failed to get list of event source mappings that map to the handleMessageQueue lambda.", err, true)
+	var eventSourceMappingUUID string
+
+	for _, mapping := range getEventSourceMappingResult.EventSourceMappings {
+		if strings.Contains(*mapping.EventSourceArn, choiceName) {
+			eventSourceMappingUUID = *mapping.UUID
+		}
+	}
+	if eventSourceMappingUUID == "" {
+		errorHandle("failed to get UUID for event source mapping betwene handleMessageQueue lambda and the now non-existent SQS queue", nil, false)
+	}
+
+	// Delete the event source mapping.
+	var deleteEventSourceMappingInput *lambdaService.DeleteEventSourceMappingInput = &lambdaService.DeleteEventSourceMappingInput{
+		UUID: aws.String(eventSourceMappingUUID),
+	}
+	_, err = lambdaClient.DeleteEventSourceMapping(ctx, deleteEventSourceMappingInput)
+	errorHandle("failed to delete event source mapping betwen handleMessageQueue lambda and the now non-existent SQS queue", err, true)
 
 	// ENDING
 	return events.APIGatewayProxyResponse{

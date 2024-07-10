@@ -22,17 +22,14 @@ import (
 
 // Automates frequent error handling.
 func errorHandle(message string, err error, format bool) (events.APIGatewayProxyResponse, error) {
-	if err != nil {
-		if format {
-			fmt.Printf("%v %v", events.APIGatewayCustomAuthorizerResponse{}, fmt.Errorf(message, ": %v", err))
-			os.Exit(1)
-		} else {
-			fmt.Printf("ERROR: %v\n", message)
-			fmt.Printf("%v\n", events.APIGatewayCustomAuthorizerResponse{})
-			os.Exit(1)
-		}
+	if format && err != nil {
+		fmt.Printf("%v %v", events.APIGatewayCustomAuthorizerResponse{}, fmt.Errorf(message, ": %v", err))
+		os.Exit(1)
+	} else if !format {
+		fmt.Printf("ERROR: %v\n", message)
+		fmt.Printf("%v\n", events.APIGatewayCustomAuthorizerResponse{})
+		os.Exit(1)
 	} else {
-		fmt.Println("Inccorect use of errorHandle.")
 		return events.APIGatewayProxyResponse{}, nil
 	}
 	fmt.Println("Unknown error regarding errorHandle()")
@@ -201,7 +198,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 			"FilterPolicy": cleanSelfMadeJson(rawNewFilter),
 		},
 	}
-	_, err = snsClient.Subscribe(ctx, subscribeQueueInput)
+	subscribeQueueResponse, err := snsClient.Subscribe(ctx, subscribeQueueInput)
 	errorHandle("failed to subscribe new channel's queue to metaTopic", err, true)
 
 	// Create new channel's endpoint SNS topic.
@@ -245,6 +242,9 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 			"EndpointTopicARN": &dynamodbTypes.AttributeValueMemberS{
 				Value: *createEndpointTopicResult.TopicArn,
 			},
+			"SubscriptionARN": &dynamodbTypes.AttributeValueMemberS{
+				Value: *subscribeQueueResponse.SubscriptionArn,
+			},
 		},
 	}
 
@@ -254,6 +254,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 		"TableARN":         createTableResult.TableDescription.TableArn,
 		"QueueARN":         getQueueARNResult.Attributes["QueueArn"],
 		"EndpointTopicARN": createEndpointTopicResult.TopicArn,
+		"SubscriptionARN":  subscribeQueueResponse.SubscriptionArn,
 	}
 	_, err = dynamoClient.PutItem(ctx, putItemChannelInfoInput)
 	errorHandle("failed to put new channe's complete info into meta info table", err, true)

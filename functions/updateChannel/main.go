@@ -12,6 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+
+	// lambdaService "github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 )
 
@@ -28,21 +30,25 @@ type Body struct {
 
 // Automates frequent error handling.
 func errorHandle(message string, err error, format bool) (events.APIGatewayProxyResponse, error) {
-	if err != nil {
-		if format {
-			fmt.Printf("%v %v", events.APIGatewayCustomAuthorizerResponse{}, fmt.Errorf(message, ": %v", err))
-			os.Exit(1)
-		} else {
-			fmt.Printf("ERROR: %v\n", message)
-			fmt.Printf("%v\n", events.APIGatewayCustomAuthorizerResponse{})
-			os.Exit(1)
-		}
+	if format && err != nil {
+		fmt.Printf("%v %v", events.APIGatewayCustomAuthorizerResponse{}, fmt.Errorf(message, ": %v", err))
+		os.Exit(1)
+	} else if !format {
+		fmt.Printf("ERROR: %v\n", message)
+		fmt.Printf("%v\n", events.APIGatewayCustomAuthorizerResponse{})
+		os.Exit(1)
 	} else {
-		fmt.Println("Inccorect use of errorHandle.")
 		return events.APIGatewayProxyResponse{}, nil
 	}
 	fmt.Println("Unknown error regarding errorHandle()")
 	return events.APIGatewayProxyResponse{}, nil
+}
+
+// Converts map[string]interface variables into json.Marshal-ed strings.
+func cleanSelfMadeJson(rawValue map[string]interface{}) string {
+	cleanValue, err := json.Marshal(rawValue)
+	errorHandle("Failed to json marshal a value", err, true)
+	return string(cleanValue)
 }
 
 // *** Per-action handler functions *** //
@@ -50,10 +56,13 @@ func ChangeChannelName(ctx context.Context, channel string, name string, cfg *aw
 	// Iniitalise service clients.
 	var dynamoClient *dynamodb.Client = dynamodb.NewFromConfig(*cfg)
 	var snsClient *sns.Client = sns.NewFromConfig(*cfg)
+	// var lambdaClient *lambdaService.Client = lambdaService.NewFromConfig(*cfg)
 
+	fmt.Printf("Channel:%v\n", channel)
+	fmt.Printf("Name:%v\n", name)
 	// Get channel info from MetaChannelTable.
 	var getChannelInfoInput *dynamodb.GetItemInput = &dynamodb.GetItemInput{
-		TableName: aws.String(channel),
+		TableName: aws.String("MetaChannelTable"),
 		Key: map[string]types.AttributeValue{
 			"Name": &types.AttributeValueMemberS{
 				Value: channel,
@@ -63,10 +72,11 @@ func ChangeChannelName(ctx context.Context, channel string, name string, cfg *aw
 	getChannelInfoResult, err := dynamoClient.GetItem(ctx, getChannelInfoInput)
 	errorHandle("failed to get channel's entry in MetaChannelTable", err, true)
 	// Extract the channel's subscription ARN.
-	subscriptionARN := getChannelInfoResult.Item["SubscriptionARN"]
-	if subscriptionARN == nil {
+	subscriptionARNAttribute := getChannelInfoResult.Item["SubscriptionARN"].(*types.AttributeValueMemberS)
+	if subscriptionARNAttribute == nil {
 		errorHandle("failed to get subscription ARN from channel's info stored in MetaChannelTable", nil, false)
 	}
+	subscriptionARN := subscriptionARNAttribute.Value
 
 	// Update channel's entry in MetaChannelTable.
 	var updateChannelEntryInput *dynamodb.UpdateItemInput = &dynamodb.UpdateItemInput{
@@ -87,11 +97,23 @@ func ChangeChannelName(ctx context.Context, channel string, name string, cfg *aw
 		},
 	}
 	//updateChannelEntryResult
-	_, err := dynamoClient.UpdateItem(ctx, updateChannelEntryInput)
+	_, err = dynamoClient.UpdateItem(ctx, updateChannelEntryInput)
 	errorHandle("failed to update the name entry for the specified channel in MetaChannelTable", err, true)
 
+	// Create new filter policy
+	rawNewFilter := map[string]interface{}{
+		"channel": []string{name},
+	}
+	cleanNewFilter := cleanSelfMadeJson(rawNewFilter)
+
 	// Change the subscription filter policy of the channel's queue to reflect the name change.
-	var updateChannelQueueSubscriptionFilterPolicyInput *sns.SetSubscriptionAttributesInput = &sns.SetSubscriptionAttributesInput{}
+	var updateChannelQueueSubscriptionFilterPolicyInput *sns.SetSubscriptionAttributesInput = &sns.SetSubscriptionAttributesInput{
+		SubscriptionArn: aws.String(subscriptionARN),
+		AttributeName:   aws.String("FilterPolicy"),
+		AttributeValue:  aws.String(cleanNewFilter),
+	}
+	_, err = snsClient.SetSubscriptionAttributes(ctx, updateChannelQueueSubscriptionFilterPolicyInput)
+	errorHandle("failed to update new filter policy for specified channel", err, true)
 }
 
 // The actual logic.

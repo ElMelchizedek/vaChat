@@ -6,3 +6,4 @@ test/
 bun.lockb
 *.zip
 bootstrap
+test.json

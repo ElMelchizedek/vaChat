@@ -112,10 +112,29 @@ export class BackendStack extends cdk.Stack {
                 // SQS
                 'sqs:GetQueueUrl',
                 'sqs:DeleteQueue',
+                // SSM
+                'ssm:GetParameter',
+                'ssm:GetParameters',
+                'ssm:GetParametersByPath',
+                // Lambda
+                'lambda:ListEventSourceMappings',
+                'lambda:DeleteEventSourceMapping',
             ],
             resources: ['*'],
         });
         functionDeleteChannel.addToRolePolicy(permissionsDeleteChannel);
+
+        const permissionsUpdateChannel = new cdk.aws_iam.PolicyStatement({
+            actions: [
+                // DynamoDB
+                'dynamodb:GetItem',
+                'dynamodb:UpdateItem',
+                // SNS
+                'sns:SetSubscriptionAttributes',
+            ],
+            resources: ['*'],
+        });
+        functionUpdateChannel.addToRolePolicy(permissionsUpdateChannel);
         
         // Add resource-based policy to handleMessageQueue to allow any SQS queue to invoke it.
         functionHandleMessageQueue.addPermission("AllowSQSTrigger", {
@@ -138,7 +157,6 @@ export class BackendStack extends cdk.Stack {
             function: functionGetChannel,
             scope: this,
         });
-
 
         // Make metaTopic's ARN a parameter, to be read by the SendMessage lambda so that it can publish to it.
         const metaTopicARN = customSSM.newGenericParamTopicARN({
