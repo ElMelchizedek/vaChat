@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -226,11 +227,25 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	errorHandle("failed to add new channel's queue as an aevent source to the lambda handleMessageQueue", err, true)
 
 	// ENDING
+	// Get number of entries in MetaChannelTable to figure out the number to set as the new channel's ID (n+1).
+	var getEntriesNumberMetaChannelTableInput *dynamodb.DescribeTableInput = &dynamodb.DescribeTableInput{
+		TableName: aws.String("MetaChannelTable"),
+	}
+	getEntriesNumberMetaChannelTableResult, err := dynamoClient.DescribeTable(ctx, getEntriesNumberMetaChannelTableInput)
+	errorHandle("failed to get number of entries in MetaChannelTable", err, true)
+	entriesNumberMetaChannelTable := *getEntriesNumberMetaChannelTableResult.Table.ItemCount
+	if entriesNumberMetaChannelTable == 0 {
+		entriesNumberMetaChannelTable = 1
+	}
+
 	// Add channel's complete info for all service into the meta channel info table.
 	var putItemChannelInfoInput *dynamodb.PutItemInput = &dynamodb.PutItemInput{
 		TableName: aws.String("MetaChannelTable"),
 		Item: map[string]dynamodbTypes.AttributeValue{
-			"Name": &dynamodbTypes.AttributeValueMemberS{
+			"ID": &dynamodbTypes.AttributeValueMemberN{
+				Value: strconv.FormatInt(entriesNumberMetaChannelTable, 10),
+			},
+			"Alias": &dynamodbTypes.AttributeValueMemberS{
 				Value: choiceName,
 			},
 			"TableARN": &dynamodbTypes.AttributeValueMemberS{
@@ -250,14 +265,15 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 
 	// Send a JSON body for the return response from API Gateway to the client webserver with any potentially desired information about the newly created channel.
 	rawReturnBody := map[string]interface{}{
-		"Name":             choiceName,
+		"ID":               entriesNumberMetaChannelTable,
+		"Alias":            choiceName,
 		"TableARN":         createTableResult.TableDescription.TableArn,
 		"QueueARN":         getQueueARNResult.Attributes["QueueArn"],
 		"EndpointTopicARN": createEndpointTopicResult.TopicArn,
 		"SubscriptionARN":  subscribeQueueResponse.SubscriptionArn,
 	}
 	_, err = dynamoClient.PutItem(ctx, putItemChannelInfoInput)
-	errorHandle("failed to put new channe's complete info into meta info table", err, true)
+	errorHandle("failed to put new channel's complete info into meta info table", err, true)
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,

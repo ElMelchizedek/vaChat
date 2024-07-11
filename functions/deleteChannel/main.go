@@ -112,12 +112,37 @@ func handleDeleteChannelRequest(ctx context.Context, request events.APIGatewayPr
 	errorHandle("failed to delete channel's endpoint topic", err, true)
 
 	// METACHANNEL TABLE
+	// Get ID of channel.
+	var getChannelIDInput *dynamodb.ScanInput = &dynamodb.ScanInput{
+		TableName:        aws.String("MetaChannelTable"),
+		FilterExpression: aws.String(fmt.Sprintf("%s = :v", "Alias")),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":v": &types.AttributeValueMemberS{
+				Value: choiceName,
+			},
+		},
+	}
+	getChannelIDResult, err := dynamoClient.Scan(ctx, getChannelIDInput)
+	errorHandle("failed to scan MetaChannelTable to find ID of channel", err, true)
+
+	fmt.Println(getChannelIDResult.Items)
+	if len(getChannelIDResult.Items) == 0 {
+		errorHandle("no results from scanning of ID for specified channel", nil, false)
+	}
+
+	var channelID string
+	for _, item := range getChannelIDResult.Items {
+		channelID = item["ID"].(*types.AttributeValueMemberN).Value
+	}
+	if channelID == "" {
+		errorHandle("could not find ID for specified channel", nil, false)
+	}
 	// Remove the channel's entry in MetaChannelTable
 	var deleteMetaChannelTableEntryInput *dynamodb.DeleteItemInput = &dynamodb.DeleteItemInput{
 		TableName: aws.String("MetaChannelTable"),
 		Key: map[string]types.AttributeValue{
-			"Name": &types.AttributeValueMemberS{
-				Value: choiceName,
+			"ID": &types.AttributeValueMemberS{
+				Value: channelID,
 			},
 		},
 	}
@@ -146,7 +171,7 @@ func handleDeleteChannelRequest(ctx context.Context, request events.APIGatewayPr
 		}
 	}
 	if eventSourceMappingUUID == "" {
-		errorHandle("failed to get UUID for event source mapping betwene handleMessageQueue lambda and the now non-existent SQS queue", nil, false)
+		errorHandle("failed to get UUID for event source mapping between handleMessageQueue lambda and the now non-existent SQS queue", nil, false)
 	}
 
 	// Delete the event source mapping.

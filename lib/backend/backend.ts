@@ -44,6 +44,8 @@ export class BackendStack extends cdk.Stack {
                 // DynamoDB
                 'dynamodb:CreateTable',
                 'dynamodb:PutItem',
+                'dynamodb:DescribeTable',
+                'dynamodb:Scan',
                 // SQS
                 'sqs:CreateQueue',
                 'sqs:GetQueueAttributes',
@@ -106,6 +108,8 @@ export class BackendStack extends cdk.Stack {
                 // DynamoDB
                 'dynamodb:DeleteTable',
                 'dynamodb:DeleteItem',
+                'dynamodb:DescribeTable',
+                'dynamodb:Scan',
                 // SNS
                 'sns:ListTopics',
                 'sns:DeleteTopic',
@@ -129,6 +133,8 @@ export class BackendStack extends cdk.Stack {
                 // DynamoDB
                 'dynamodb:GetItem',
                 'dynamodb:UpdateItem',
+                'dynamodb:DescribeTable',
+                'dynamodb:Scan',
                 // SNS
                 'sns:SetSubscriptionAttributes',
             ],

@@ -58,14 +58,37 @@ func ChangeChannelName(ctx context.Context, channel string, name string, cfg *aw
 	var snsClient *sns.Client = sns.NewFromConfig(*cfg)
 	// var lambdaClient *lambdaService.Client = lambdaService.NewFromConfig(*cfg)
 
-	fmt.Printf("Channel:%v\n", channel)
-	fmt.Printf("Name:%v\n", name)
+	// Get ID of channel.
+	var getChannelIDInput *dynamodb.ScanInput = &dynamodb.ScanInput{
+		TableName:        aws.String("MetaChannelTable"),
+		FilterExpression: aws.String(fmt.Sprintf("%s = :v", "Alias")),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":v": &types.AttributeValueMemberS{
+				Value: channel,
+			},
+		},
+	}
+	getChannelIDResult, err := dynamoClient.Scan(ctx, getChannelIDInput)
+	errorHandle("failed to scan MetaChannelTable to find ID of channel", err, true)
+
+	if len(getChannelIDResult.Items) == 0 {
+		errorHandle("no results from scanning of ID for specified channel", nil, false)
+	}
+
+	var channelID string
+	for _, item := range getChannelIDResult.Items {
+		channelID = item["ID"].(*types.AttributeValueMemberN).Value
+	}
+	if channelID == "" {
+		errorHandle("could not find ID for specified channel", nil, false)
+	}
+
 	// Get channel info from MetaChannelTable.
 	var getChannelInfoInput *dynamodb.GetItemInput = &dynamodb.GetItemInput{
 		TableName: aws.String("MetaChannelTable"),
 		Key: map[string]types.AttributeValue{
-			"Name": &types.AttributeValueMemberS{
-				Value: channel,
+			"ID": &types.AttributeValueMemberS{
+				Value: channelID,
 			},
 		},
 	}
@@ -82,13 +105,13 @@ func ChangeChannelName(ctx context.Context, channel string, name string, cfg *aw
 	var updateChannelEntryInput *dynamodb.UpdateItemInput = &dynamodb.UpdateItemInput{
 		TableName: aws.String("MetaChannelTable"),
 		Key: map[string]types.AttributeValue{
-			"Name": &types.AttributeValueMemberS{
-				Value: channel,
+			"ID": &types.AttributeValueMemberS{
+				Value: channelID,
 			},
 		},
 		UpdateExpression: aws.String("SET #attributeName = :attributeValue"),
 		ExpressionAttributeNames: map[string]string{
-			"#attributeName": "Name",
+			"#attributeName": "Alias",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":attributeValue": &types.AttributeValueMemberS{
