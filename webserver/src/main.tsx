@@ -85,7 +85,7 @@ new Elysia()
                     <body  hx-ext="ws" ws-connect="/ws-main">
                         <h1>Message others</h1>
 
-                        <form ws-send id="new-channel">
+                        <form ws-send data-type="newChannel" id="new-channel">
                             <input name="newChannel" />
                             <button>Create</button>
                         </form>
@@ -101,7 +101,7 @@ new Elysia()
 
                         <div id="messages"></div>
 
-                        <form ws-send id="write-message" hx-include="#channel-select">
+                        <form ws-send data-type="submitMessage" id="write-message" hx-include="#channel-select">
                             <input name="message" />
                         </form>
                     </body>
