@@ -36,6 +36,22 @@ func errorHandle(message string, err error, format bool) (events.APIGatewayProxy
 	return events.APIGatewayProxyResponse{}, nil
 }
 
+// func deleteTable() {
+
+// }
+
+// func getQueueURL() {
+
+// }
+
+// func deleteQueue() {
+
+// }
+
+// func getTopicARN() {
+
+// }
+
 func handleDeleteChannelRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	// Parse chosen name from json body request.
 	var choiceName string
