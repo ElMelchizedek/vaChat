@@ -17,20 +17,27 @@ export const createChannel = async (name: string) => {
             },
             body: name,
         });
+
         if (!response.ok) {
             throw new Error(`Failed to perform POST request on /createChannel: ${response}`);
         }
+
         console.log("\nResponse\n", response);
+
         const json = await response.json();
         console.log("\nJSON\n", json);
-        const strinigifed = await JSON.stringify(json);
+
+        const strinigifed = JSON.stringify(json);
         console.log("\nStringified\n", strinigifed);
+
         return json;
     } catch (error) {
         let message = "Unknown Error";
+
         if (error instanceof Error) {
             message = error.message
         }
+
         console.log(message)
     }
 }

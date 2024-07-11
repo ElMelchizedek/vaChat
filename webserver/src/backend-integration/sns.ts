@@ -92,12 +92,9 @@ export const snsIngest = async (updateClients: (message: Notification) => void) 
                     case "Notification": {
                         const message = JSON.parse(body) as Notification
 
-                        console.log("Before Update Client\n");
-                        updateClients(message)
-                        console.log("After Update Client\n");
-
                         console.log("SNS Message received: ", message.Message)
 
+                        updateClients(message)
                         break
                     }
 

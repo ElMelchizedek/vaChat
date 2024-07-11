@@ -52,7 +52,7 @@ export class Client {
     }
 
     private send: (content: JSX.Element) => void;
-    private channels: string[];
     
+    public channels: string[];
     public subscribedTo: string;
 }

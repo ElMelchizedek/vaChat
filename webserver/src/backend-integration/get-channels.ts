@@ -14,23 +14,29 @@ export type ChannelInfo = {
 }[]
 
 export const getChannels = async () => {
-    const requestURL: string = `${url}/getChannel?type=all`;
-    console.log(`URL\n${requestURL}\n`);
-    try {
-        const response = await fetch (requestURL, {method: "GET"});
-        if (!response.ok) {
-            throw new Error(`Failed to perform GET request on /getChannel: ${response}`);
-        }
-        console.log("\nResponse\n", response);
+    const requestURL = `${url}/getChannel?type=all`
 
-        const json = await response.json();
-        console.log("\nJSON\n", json);
-        return json as ChannelInfo;
+    console.log(`URL\n${requestURL}\n`)
+
+    try {
+        const response = await fetch (requestURL, {method: "GET"})
+        if (!response.ok) {
+            throw new Error(`Failed to perform GET request on /getChannel: ${response}`)
+        }
+
+        console.log("\ngetChannels API Response\n", response)
+
+        const json = await response.json()
+        console.log("\ngetChannels API JSON\n", json)
+
+        return json as ChannelInfo
     } catch (error) {
-        let message = "Unknown Error";
+        let message = "Unknown Error"
+
         if (error instanceof Error) {
             message = error.message
         }
+
         console.log(message)
     }
 }

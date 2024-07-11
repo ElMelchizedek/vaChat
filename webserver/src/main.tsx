@@ -13,6 +13,9 @@ import {
     Client
 } from './websockets'
 
+// @ts-ignore
+import { file } from './file' with { type: "macro" }
+
 const {
     WEBSERVER_PORT: port
 } = process.env
@@ -73,6 +76,8 @@ new Elysia()
                     <head>
                         <title>Message others</title>
 
+
+                        <script>{await file("./js/main.js")}</script>
                         <script src="https://unpkg.com/htmx.org@2.0.0"></script>
                         <script src="https://unpkg.com/htmx-ext-ws@2.0.0/ws.js"></script>
                     </head>
@@ -80,11 +85,12 @@ new Elysia()
                     <body  hx-ext="ws" ws-connect="/ws-main">
                         <h1>Message others</h1>
 
-                        <select id="channel-select" name="channel"
-                            hx-get="/changeChannel"
-                            hx-trigger="change"
-                            hx-target="#messages"
-                            hx-swap="outerHTML">
+                        <form ws-send id="new-channel">
+                            <input name="newChannel" />
+                            <button>Create</button>
+                        </form>
+
+                        <select ws-send data-type="changeChannel" id="channel-select" name="channel" hx-trigger="change">
                             {
                                 channelInfo.map(
                                     (channel) =>
@@ -95,7 +101,7 @@ new Elysia()
 
                         <div id="messages"></div>
 
-                        <form id="write-message" hx-include="#channel-select" ws-send>
+                        <form ws-send id="write-message" hx-include="#channel-select">
                             <input name="message" />
                         </form>
                     </body>
@@ -107,12 +113,14 @@ new Elysia()
     .get('/changeChannel', 
         async ({ query, cookie }) => {
             const sessionId = cookie.session.value
-            
-            console.log("query.channel:\n", query.channel)
 
             const client = sessions.get(sessionId)!
             client.subscribedTo = query.channel
 
+            console.log("query.channel:\n", query.channel)
+
+
+            // get channel history
             return <div id="messages" />
         }, 
         {
@@ -133,9 +141,9 @@ new Elysia()
             (message) => {
                 sessions.forEach(
                     async (client) => {
-                        console.log("message in .use(snsIngent)\n:", message);
-                        console.log("client.subscribedTo:\n", client.subscribedTo);
-                        console.log("message.MessageAttributes.channel.Value:\n", message.MessageAttributes.channel.Value);
+                        console.log("message in .use(snsIngent)\n:", message)
+                        console.log("client.subscribedTo:\n", client.subscribedTo)
+                        console.log("message.MessageAttributes.channel.Value:\n", message.MessageAttributes.channel.Value)
                         if (client.subscribedTo === message.MessageAttributes.channel.Value) {
                             await client.sendMessage(
                                 message.MessageAttributes.account.Value, 

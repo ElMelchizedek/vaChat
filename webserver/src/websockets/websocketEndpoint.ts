@@ -1,6 +1,6 @@
 import { Elysia } from "elysia"
 import { Client } from "./client"
-import { submitMessage, ChannelInfo } from "../backend-integration"
+import { submitMessage, createChannel, ChannelInfo } from "../backend-integration"
 
 export const ws = (sessions: Map<string, Client>, channelInfo: ChannelInfo) =>
     (app: Elysia) =>
@@ -30,19 +30,51 @@ export const ws = (sessions: Map<string, Client>, channelInfo: ChannelInfo) =>
                 },
 
                 // runs every time a message is sent over a WebSocket connection
-                async message(ws, content) {
-                    const { message, channel } = content as { message: string, channel: string }
+                async message(ws, message) {
+                    console.log(JSON.stringify(message))
 
-                    console.log("Message received from user: ", message)
+                    const client = sessions.get(ws.data.cookie.session.value)!
 
-                    // submit new message to backend system via API gateway
-                    console.log("Submit message response:", JSON.stringify(await submitMessage({
-                        channel: channel,
-                        account: "1",
-                        timestamp: Date.now().toString(),
-                        message,
-                        topic: channelInfo.find(({ Name }) => Name.Value === channel)!.EndpointTopicARN.Value
-                    })))
+                    const msg = message as any;
+
+                    switch(msg.messageType) {
+                        case "changeChannel":
+                            client.subscribedTo = msg.channel
+
+                            await client.clearHistory()
+
+                            break
+                        case "newChannel":
+                            const newChannel = await createChannel(msg.newChannel)
+
+                            if(!newChannel) {
+                                console.log("Failed to create new channel")
+                            } else {
+                                channelInfo.push(newChannel)
+
+                                client.channels.push(newChannel.Name.Value)
+
+                                client.subscribedTo = newChannel.Name.Value
+
+                                await client.clearHistory()
+                            }
+
+                            break
+                        case "submitMessage":
+                            console.log("Submit message response:", JSON.stringify(
+                                await submitMessage({
+                                    channel: msg.channel,
+                                    account: "1",
+                                    timestamp: Date.now().toString(),
+                                    message: msg.message,
+                                    topic: channelInfo.find(({ Name }) => Name.Value === msg.channel)!.EndpointTopicARN.Value
+                                })
+                            ))
+
+                            break
+                        default:
+                            console.log("Invalid message")
+                    }
                 },
 
                 // runs whenever a WebSocket connection is closed
