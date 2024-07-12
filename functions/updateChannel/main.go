@@ -66,6 +66,8 @@ func getChannelID(name string, ctx *context.Context, dynamoClient *dynamodb.Clie
 		},
 	}
 
+	fmt.Printf("name in getChannelID:%v\n", name)
+
 	getChannelIDResult, err := dynamoClient.Scan(*ctx, &getChannelIDInput)
 	errorHandle("failed to scan MetaChannelTable to find ID of channel", err, true)
 
@@ -104,7 +106,7 @@ func getSubscriptionARN(name string, ctx *context.Context, dynamoClient *dynamod
 
 	var subscriptionARN string
 	for _, item := range getSubscriptionARNResult.Items {
-		subscriptionARN = item["SubscriptionARN"].(*types.AttributeValueMemberN).Value
+		subscriptionARN = item["SubscriptionARN"].(*types.AttributeValueMemberS).Value
 	}
 	if subscriptionARN == "" {
 		errorHandle("could not find ID for specified channel", nil, false)
@@ -154,7 +156,7 @@ func updateSubscriptionFilter(name string, subscriptionARN string, ctx *context.
 }
 
 // *** PER-ACTION FUNCTIONS *** //
-func ChangeChannelName(ctx context.Context, channel string, name string, cfg *aws.Config) {
+func ChangeChannelName(ctx context.Context, channel string, newName string, cfg *aws.Config) {
 	// Iniitalise service clients.
 	var dynamoClient *dynamodb.Client = dynamodb.NewFromConfig(*cfg)
 	var snsClient *sns.Client = sns.NewFromConfig(*cfg)
@@ -162,22 +164,22 @@ func ChangeChannelName(ctx context.Context, channel string, name string, cfg *aw
 
 	// Get ID of channel.
 	getChannelIDChannel := make(chan string)
-	go getChannelID(name, &ctx, dynamoClient, getChannelIDChannel)
+	go getChannelID(channel, &ctx, dynamoClient, getChannelIDChannel)
 	channelID := <-getChannelIDChannel
 
 	// Get the channel's subscription ARN.
 	getSubscriptionARNChannel := make(chan string)
-	go getSubscriptionARN(name, &ctx, dynamoClient, getSubscriptionARNChannel)
+	go getSubscriptionARN(channel, &ctx, dynamoClient, getSubscriptionARNChannel)
 	subscriptionARN := <-getSubscriptionARNChannel
 
 	// Update channel's entry in MetaChannelTable.
 	updateChannelEntryChannel := make(chan *dynamodb.UpdateItemOutput)
-	go updateChannelEntry(channelID, name, &ctx, dynamoClient, updateChannelEntryChannel)
+	go updateChannelEntry(channelID, newName, &ctx, dynamoClient, updateChannelEntryChannel)
 	<-updateChannelEntryChannel
 
 	// Change the subscription filter policy of the channel's queue to reflect the name change.
 	updateSubscriptionFilterChannel := make(chan *sns.SetSubscriptionAttributesOutput)
-	go updateSubscriptionFilter(name, subscriptionARN, &ctx, snsClient, updateSubscriptionFilterChannel)
+	go updateSubscriptionFilter(newName, subscriptionARN, &ctx, snsClient, updateSubscriptionFilterChannel)
 	<-updateSubscriptionFilterChannel
 }
 
@@ -204,6 +206,7 @@ func handleUpdateChannelRequest(ctx context.Context, request events.APIGatewayPr
 		if _, ok := data.Request.Parameters[0]["name"]; !ok {
 			errorHandle("key \"name\" not provided for ChangeChannelName action", nil, false)
 		}
+		fmt.Printf("name in main:%v\n", data.Request.Parameters[0]["name"])
 		ChangeChannelName(ctx, data.Channel, data.Request.Parameters[0]["name"], &cfg)
 	}
 
