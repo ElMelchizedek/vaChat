@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -26,11 +25,13 @@ import (
 func errorHandle(message string, err error, format bool) (events.APIGatewayProxyResponse, error) {
 	if format && err != nil {
 		fmt.Printf("%v %v", events.APIGatewayCustomAuthorizerResponse{}, fmt.Errorf(message, ": %v", err))
-		os.Exit(1)
+		return events.APIGatewayProxyResponse{}, nil
+		// os.Exit(1)
 	} else if !format {
 		fmt.Printf("ERROR: %v\n", message)
 		fmt.Printf("%v\n", events.APIGatewayCustomAuthorizerResponse{})
-		os.Exit(1)
+		return events.APIGatewayProxyResponse{}, nil
+		// os.Exit(1)
 	} else {
 		return events.APIGatewayProxyResponse{}, nil
 	}
@@ -175,6 +176,10 @@ func subscribeQueue(name string, queueARN string, metaTopicARN string, ctx *cont
 		"channel": []string{name},
 	}
 
+	fmt.Printf("Name:%v\n", name)
+	fmt.Printf("Endpoint:%v\n", queueARN)
+	fmt.Printf("TopicArn:%v\n", metaTopicARN)
+
 	subscribeQueueInput := sns.SubscribeInput{
 		Endpoint: aws.String(queueARN),
 		TopicArn: aws.String(metaTopicARN),
@@ -314,6 +319,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	getQueueARNChannel := make(chan *sqs.GetQueueAttributesOutput)
 	go getQueueARN(createQueueResult.QueueUrl, &ctx, sqsClient, getQueueARNChannel)
 	getQueueARNResult := <-getQueueARNChannel
+	fmt.Printf("GetQueueARN Attributes:%v", getQueueARNResult.Attributes)
 
 	// TOPICS
 	// Get MetaTopic's ARN
@@ -323,7 +329,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 
 	// Subscribes the newly created queue to MetaTopic
 	subscribeQueueChannel := make(chan *sns.SubscribeOutput)
-	go subscribeQueue(choiceName, getQueueARNResult.Attributes["QueueARN"], metaTopicARN, &ctx, snsClient, subscribeQueueChannel)
+	go subscribeQueue(choiceName, getQueueARNResult.Attributes["QueueArn"], metaTopicARN, &ctx, snsClient, subscribeQueueChannel)
 	subscribeQueueResult := <-subscribeQueueChannel
 
 	// Create new channel's endpoint SNS topic.
@@ -340,7 +346,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	// LAMBDA
 	// Make the newly created channel's queue an event source for the lambda handleMessageQueue.
 	addEventSourceQueueChannel := make(chan *lambda.CreateEventSourceMappingOutput)
-	go addEventSourceQueue(getQueueARNResult.Attributes["QueueARN"], *getHandleMessageQueueARNResult.Parameter.Value, &ctx, lambdaClient, addEventSourceQueueChannel)
+	go addEventSourceQueue(getQueueARNResult.Attributes["QueueArn"], *getHandleMessageQueueARNResult.Parameter.Value, &ctx, lambdaClient, addEventSourceQueueChannel)
 	<-addEventSourceQueueChannel
 
 	// ENDING
