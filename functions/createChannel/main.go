@@ -48,9 +48,9 @@ func cleanSelfMadeJson(rawValue map[string]interface{}) string {
 
 // *** ASYNC SERVICE FUNCTIONS *** //
 // Creates DynamoDB table to contain messages of new channel.
-func createTable(name string, ctx *context.Context, dynamoClient *dynamodb.Client, result chan *dynamodb.CreateTableOutput) {
+func createTable(id string, ctx *context.Context, dynamoClient *dynamodb.Client, result chan *dynamodb.CreateTableOutput) {
 	createTableInput := dynamodb.CreateTableInput{
-		TableName: aws.String(name + "Table"),
+		TableName: aws.String(id + "Table"),
 		AttributeDefinitions: []dynamodbTypes.AttributeDefinition{
 			// TODO: Add IDs as primary key instead of names.
 			{
@@ -107,7 +107,7 @@ func createTable(name string, ctx *context.Context, dynamoClient *dynamodb.Clien
 }
 
 // Creates SQS queue for new channel.
-func createQueue(name string, ctx *context.Context, sqsClient *sqs.Client, result chan *sqs.CreateQueueOutput) {
+func createQueue(id string, ctx *context.Context, sqsClient *sqs.Client, result chan *sqs.CreateQueueOutput) {
 	// Gives SNS permission to send messages to the new channel's queue.
 	policy := map[string]interface{}{
 		"Version": "2012-10-17",
@@ -126,7 +126,7 @@ func createQueue(name string, ctx *context.Context, sqsClient *sqs.Client, resul
 	}
 
 	createQueueInput := sqs.CreateQueueInput{
-		QueueName: aws.String(name + "Channel" + "Queue"),
+		QueueName: aws.String(id + "Channel" + "Queue"),
 		Attributes: map[string]string{
 			"Policy": cleanSelfMadeJson(policy),
 		},
@@ -170,13 +170,13 @@ func getMetaTopicARN(ctx *context.Context, snsClient *sns.Client, result chan st
 	result <- metaTopicARN
 }
 
-func subscribeQueue(name string, queueARN string, metaTopicARN string, ctx *context.Context, snsClient *sns.Client, result chan *sns.SubscribeOutput) {
+func subscribeQueue(id string, queueARN string, metaTopicARN string, ctx *context.Context, snsClient *sns.Client, result chan *sns.SubscribeOutput) {
 	// Filter policy for subscription from queue to MetaTopic so as to only allow messages that specify the new channel.
 	filter := map[string]interface{}{
-		"channel": []string{name},
+		"channel": []string{id},
 	}
 
-	fmt.Printf("Name:%v\n", name)
+	fmt.Printf("ID:%v\n", id)
 	fmt.Printf("Endpoint:%v\n", queueARN)
 	fmt.Printf("TopicArn:%v\n", metaTopicARN)
 
@@ -204,9 +204,9 @@ func getHandleMessageQueueARN(ctx *context.Context, ssmClient *ssm.Client, resul
 	result <- getHandleMessageQueueARNResult
 }
 
-func createTopic(name string, ctx *context.Context, snsClient *sns.Client, result chan *sns.CreateTopicOutput) {
+func createTopic(id string, ctx *context.Context, snsClient *sns.Client, result chan *sns.CreateTopicOutput) {
 	createTopicInput := sns.CreateTopicInput{
-		Name: aws.String(name + "EndpointTopic"),
+		Name: aws.String(id + "EndpointTopic"),
 	}
 
 	createTopicResult, err := snsClient.CreateTopic(*ctx, &createTopicInput)
@@ -227,19 +227,30 @@ func addEventSourceQueue(queueARN string, lambdaARN string, ctx *context.Context
 	result <- addEventSourceQueueResult
 }
 
-func getEntriesNumberMetaChannelTable(ctx *context.Context, dynamoClient *dynamodb.Client, result chan int) {
-	getEntriesNumberMetaChannelTableInput := dynamodb.DescribeTableInput{
-		TableName: aws.String("MetaChannelTable"),
+func getChannelCount(ctx *context.Context, ssmClient *ssm.Client, result chan string) {
+	getChannelCountInput := ssm.GetParameterInput{
+		Name: aws.String("channelCount"),
 	}
-	getEntriesNumberMetaChannelTableInputResult, err := dynamoClient.DescribeTable(*ctx, &getEntriesNumberMetaChannelTableInput)
-	errorHandle("failed to get number of entries in MetaChannelTable", err, true)
+	getChannelCountResponse, err := ssmClient.GetParameter(*ctx, &getChannelCountInput)
+	errorHandle("failed to get channelCount parameter", err, true)
+	result <- *getChannelCountResponse.Parameter.Value
+}
 
-	entriesNumberMetaChannelTable := *getEntriesNumberMetaChannelTableInputResult.Table.ItemCount
-	if entriesNumberMetaChannelTable == 0 {
-		entriesNumberMetaChannelTable = 1
+func iterateChannelCount(channelCount string, ctx *context.Context, ssmClient *ssm.Client, result chan string) {
+	rawCount, err := strconv.Atoi(channelCount)
+	errorHandle("failed to convert channelCount from string to integer", err, true)
+
+	rawCount++
+	newCount := strconv.Itoa(rawCount)
+
+	iterateChannelCountInput := ssm.PutParameterInput{
+		Name:      aws.String("channelCount"),
+		Overwrite: aws.Bool(true),
+		Value:     aws.String(newCount),
 	}
-
-	result <- int(entriesNumberMetaChannelTable)
+	_, err = ssmClient.PutParameter(*ctx, &iterateChannelCountInput)
+	errorHandle("failed to put new iterated value into channelCount parameter", err, true)
+	result <- newCount
 }
 
 func addEntryMetaChannelTable(entriesMetaChannelTable int, name string, tableARN string, queueARN string, topicARN string, subscriptionARN string, ctx *context.Context,
@@ -303,16 +314,28 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	var ssmClient *ssm.Client = ssm.NewFromConfig(cfg)
 	var lambdaClient *lambda.Client = lambda.NewFromConfig(cfg)
 
+	// INITIAL
+	// Get current channel count parameter
+	getChannelCountChannel := make(chan string)
+	go getChannelCount(&ctx, ssmClient, getChannelCountChannel)
+	channelCount := <-getChannelCountChannel
+
+	// Iterate channel count parameter
+	iterateChannelCountChannel := make(chan string)
+	go iterateChannelCount(channelCount, &ctx, ssmClient, iterateChannelCountChannel)
+	newID, err := strconv.Atoi(<-iterateChannelCountChannel)
+	errorHandle("failed to convert newID back into integer", err, true)
+
 	// TABLE
 	// Create new channel's table.
 	createTableChannel := make(chan *dynamodb.CreateTableOutput)
-	go createTable(choiceName, &ctx, dynamoClient, createTableChannel)
+	go createTable(strconv.Itoa(newID), &ctx, dynamoClient, createTableChannel)
 	createTableResult := <-createTableChannel
 
 	// QUEUE
 	// Create SQS queue for new channel.
 	createQueueChannel := make(chan *sqs.CreateQueueOutput)
-	go createQueue(choiceName, &ctx, sqsClient, createQueueChannel)
+	go createQueue(strconv.Itoa(newID), &ctx, sqsClient, createQueueChannel)
 	createQueueResult := <-createQueueChannel
 
 	// Get new queue's ARN
@@ -329,12 +352,12 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 
 	// Subscribes the newly created queue to MetaTopic
 	subscribeQueueChannel := make(chan *sns.SubscribeOutput)
-	go subscribeQueue(choiceName, getQueueARNResult.Attributes["QueueArn"], metaTopicARN, &ctx, snsClient, subscribeQueueChannel)
+	go subscribeQueue(strconv.Itoa(newID), getQueueARNResult.Attributes["QueueArn"], metaTopicARN, &ctx, snsClient, subscribeQueueChannel)
 	subscribeQueueResult := <-subscribeQueueChannel
 
 	// Create new channel's endpoint SNS topic.
 	createTopicChannel := make(chan *sns.CreateTopicOutput)
-	go createTopic(choiceName, &ctx, snsClient, createTopicChannel)
+	go createTopic(strconv.Itoa(newID), &ctx, snsClient, createTopicChannel)
 	createTopicResult := <-createTopicChannel
 
 	// PARAMETERS
@@ -350,15 +373,11 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	<-addEventSourceQueueChannel
 
 	// ENDING
-	// Get number of entries in MetaChannelTable to figure out the number to set as the new channel's ID (n+1).
-	getEntriesNumberMetaChannelTableChannel := make(chan int)
-	go getEntriesNumberMetaChannelTable(&ctx, dynamoClient, getEntriesNumberMetaChannelTableChannel)
-	entriesNumberMetaChannelTable := <-getEntriesNumberMetaChannelTableChannel
 
 	// Add channel's complete info for all service into the meta channel info table.
 	addEntryMetaChannelTableChannel := make(chan *dynamodb.PutItemOutput)
 	go addEntryMetaChannelTable(
-		entriesNumberMetaChannelTable,
+		newID,
 		choiceName,
 		*createTableResult.TableDescription.TableArn,
 		getQueueARNResult.Attributes["QueueArn"],
@@ -372,7 +391,7 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 
 	// Send a JSON body for the return response from API Gateway to the client webserver with any potentially desired information about the newly created channel.
 	rawReturnBody := map[string]interface{}{
-		"ID":               entriesNumberMetaChannelTable,
+		"ID":               newID,
 		"Alias":            choiceName,
 		"TableARN":         createTableResult.TableDescription.TableArn,
 		"QueueARN":         getQueueARNResult.Attributes["QueueArn"],

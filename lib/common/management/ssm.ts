@@ -16,6 +16,12 @@ interface lambdaProps {
     lambda: aws_go_lambda.GoFunction;
 }
 
+interface otherProps {
+    scope: Construct;
+    name: string;
+    value: string;
+}
+
 export function newGenericParamTopicARN(props: topicProps) {
     const param = new cdk.aws_ssm.StringParameter(props.scope, "idParam".concat(props.name), {
         parameterName: (props.type == "metaTopic" ? props.type.concat("ARN") : props.type.concat(props.name, "ARN")),
@@ -34,4 +40,15 @@ export function newGenericParamLambdaARN(props: lambdaProps) {
         parameterName: props.name.concat("ARN"),
         stringValue: props.lambda.functionArn,
     })
+
+    return param;
+}
+
+export function newGenericParamOther(props: otherProps) {
+    const param = new cdk.aws_ssm.StringParameter(props.scope, "idParam".concat(props.name), {
+        parameterName: props.name,
+        stringValue: props.value,
+    })
+
+    return param;
 }
