@@ -28,7 +28,7 @@ func errorHandle(message string, err error, format bool) (events.APIGatewayProxy
 		// os.Exit(1)
 	} else if !format {
 		fmt.Printf("ERROR: %v\n", message)
-		fmt.Printf("%v\n", events.APIGatewayCustomAuthorizerResponse{})
+		// fmt.Printf("%v\n", events.APIGatewayCustomAuthorizerResponse{})
 		return events.APIGatewayProxyResponse{}, nil
 		// os.Exit(1)
 	} else {
@@ -38,18 +38,18 @@ func errorHandle(message string, err error, format bool) (events.APIGatewayProxy
 	return events.APIGatewayProxyResponse{}, nil
 }
 
-func deleteTable(name string, ctx *context.Context, dynamoClient *dynamodb.Client, result chan *dynamodb.DeleteTableOutput) {
+func deleteTable(id string, ctx *context.Context, dynamoClient *dynamodb.Client, result chan *dynamodb.DeleteTableOutput) {
 	deleteTableInput := dynamodb.DeleteTableInput{
-		TableName: aws.String(name + "Table"),
+		TableName: aws.String(id + "Table"),
 	}
 	deleteTableResult, err := dynamoClient.DeleteTable(*ctx, &deleteTableInput)
 	errorHandle("failed to delete channel's dynamod table", err, true)
 	result <- deleteTableResult
 }
 
-func getQueueURL(name string, ctx *context.Context, sqsClient *sqs.Client, result chan *sqs.GetQueueUrlOutput) {
+func getQueueURL(id string, ctx *context.Context, sqsClient *sqs.Client, result chan *sqs.GetQueueUrlOutput) {
 	getQueueURLInput := sqs.GetQueueUrlInput{
-		QueueName: aws.String(name + "ChannelQueue"),
+		QueueName: aws.String(id + "ChannelQueue"),
 	}
 	getQueueURLResult, err := sqsClient.GetQueueUrl(*ctx, &getQueueURLInput)
 	errorHandle("failed to get the URL of the channel's queue", err, true)
@@ -65,7 +65,7 @@ func deleteQueue(queueURL string, ctx *context.Context, sqsClient *sqs.Client, r
 	result <- deleteQueueResult
 }
 
-func getTopicARN(name string, ctx *context.Context, snsClient *sns.Client, result chan string) {
+func getTopicARN(id string, ctx *context.Context, snsClient *sns.Client, result chan string) {
 	listTopicsInput := sns.ListTopicsInput{}
 
 	listTopicsResult, err := snsClient.ListTopics(*ctx, &listTopicsInput)
@@ -73,7 +73,7 @@ func getTopicARN(name string, ctx *context.Context, snsClient *sns.Client, resul
 
 	var topicARN string
 	for _, topic := range listTopicsResult.Topics {
-		if strings.Contains(*topic.TopicArn, name) {
+		if strings.Contains(*topic.TopicArn, id) {
 			topicARN = *topic.TopicArn
 			break
 		}
@@ -92,35 +92,6 @@ func deleteTopic(topicARN string, ctx *context.Context, snsClient *sns.Client, r
 	deleteTopicResult, err := snsClient.DeleteTopic(*ctx, &deleteTopicInput)
 	errorHandle("failed to delete channel's topic", err, true)
 	result <- deleteTopicResult
-}
-
-func getChannelID(name string, ctx *context.Context, dynamoClient *dynamodb.Client, result chan string) {
-	getChannelIDInput := dynamodb.ScanInput{
-		TableName:        aws.String("MetaChannelTable"),
-		FilterExpression: aws.String(fmt.Sprintf("%s = :v", "Alias")),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":v": &types.AttributeValueMemberS{
-				Value: name,
-			},
-		},
-	}
-
-	getChannelIDResult, err := dynamoClient.Scan(*ctx, &getChannelIDInput)
-	errorHandle("failed to scan MetaChannelTable to find ID of channel", err, true)
-
-	if len(getChannelIDResult.Items) == 0 {
-		errorHandle("no results from scanning of ID for specified channel", nil, false)
-	}
-
-	var channelID string
-	for _, item := range getChannelIDResult.Items {
-		channelID = item["ID"].(*types.AttributeValueMemberN).Value
-	}
-	if channelID == "" {
-		errorHandle("could not find ID for specified channel", nil, false)
-	}
-
-	result <- channelID
 }
 
 func removeEntryMetaChannelTable(id string, ctx *context.Context, dynamoClient *dynamodb.Client, result chan *dynamodb.DeleteItemOutput) {
@@ -149,7 +120,7 @@ func getHandleMessageQueueARN(ctx *context.Context, ssmClient *ssm.Client, resul
 	result <- getHandleMessageQueueARNResult
 }
 
-func getEventSourceMapping(name string, lambda string, ctx *context.Context, lambdaClient *lambdaService.Client, result chan string) {
+func getEventSourceMapping(id string, lambda string, ctx *context.Context, lambdaClient *lambdaService.Client, result chan string) {
 	getEventSourceMappingInput := lambdaService.ListEventSourceMappingsInput{
 		FunctionName: aws.String(lambda),
 	}
@@ -159,7 +130,7 @@ func getEventSourceMapping(name string, lambda string, ctx *context.Context, lam
 
 	var eventSourceMappingUUID string
 	for _, mapping := range getEventSourceMappingResult.EventSourceMappings {
-		if strings.Contains(*mapping.EventSourceArn, name) {
+		if strings.Contains(*mapping.EventSourceArn, id) {
 			eventSourceMappingUUID = *mapping.UUID
 		}
 	}
@@ -181,59 +152,54 @@ func deleteEventSourceMapping(uuid string, ctx *context.Context, lambdaClient *l
 	result <- deleteEventSourceMappingResult
 }
 
-// func getSubscriptionARN(name string, ctx *context.Context, dynamoClient *dynamodb.Client, result chan string) {
-// 	getSubscriptionARNInput := dynamodb.ScanInput{
-// 		TableName:        aws.String("MetaChannelTable"),
-// 		FilterExpression: aws.String(fmt.Sprintf("%s = :v", "Alias")),
-// 		ExpressionAttributeValues: map[string]types.AttributeValue{
-// 			":v": &types.AttributeValueMemberS{
-// 				Value: name,
-// 			},
-// 		},
-// 	}
+func getSubscriptionARN(id string, ctx *context.Context, dynamoClient *dynamodb.Client, result chan string) {
+	getSubscriptionARNInput := dynamodb.GetItemInput{
+		TableName: aws.String("MetaChannelTable"),
+		Key: map[string]types.AttributeValue{
+			"ID": &types.AttributeValueMemberN{Value: id},
+		},
+		ProjectionExpression: aws.String("SubscriptionARN"),
+	}
 
-// 	getSubscriptionARNResult, err := dynamoClient.Scan(*ctx, &getSubscriptionARNInput)
-// 	errorHandle("failed to scan MetaChannelTable to find subscription ARN of channel", err, true)
+	getSubscriptionARNResult, err := dynamoClient.GetItem(*ctx, &getSubscriptionARNInput)
+	errorHandle("failed to query MetaChannelTable for subscription ARN", err, true)
 
-// 	if len(getSubscriptionARNResult.Items) == 0 {
-// 		errorHandle("no results from scanning of subscription ARN for specified channel", nil, false)
-// 	}
+	if len(getSubscriptionARNResult.Item) == 0 {
+		errorHandle("no results from scanning of ID for specified channel", nil, false)
+	}
 
-// 	var subscriptionARN string
-// 	for _, item := range getSubscriptionARNResult.Items {
-// 		subscriptionARN = item["SubscriptionARN"].(*types.AttributeValueMemberN).Value
-// 	}
-// 	if subscriptionARN == "" {
-// 		errorHandle("could not find ID for specified channel", nil, false)
-// 	}
+	channelID := getSubscriptionARNResult.Item["SubscriptionARN"].(*types.AttributeValueMemberS).Value
+	if channelID == "" {
+		errorHandle("could not find ID for specified channel", nil, false)
+	}
 
-// 	result <- subscriptionARN
-// }
+	result <- channelID
+}
 
-// func deleteSubscription(arn string, ctx *context.Context, snsClient *sns.Client, result chan *sns.UnsubscribeOutput) {
-// 	deleteSubscriptionInput := sns.UnsubscribeInput{
-// 		SubscriptionArn: aws.String(arn),
-// 	}
+func deleteSubscription(arn string, ctx *context.Context, snsClient *sns.Client, result chan *sns.UnsubscribeOutput) {
+	deleteSubscriptionInput := sns.UnsubscribeInput{
+		SubscriptionArn: aws.String(arn),
+	}
 
-// 	deleteSubscriptionResult, err := snsClient.Unsubscribe(*ctx, &deleteSubscriptionInput)
-// 	errorHandle("failed to delete subscription of channel", err, true)
+	deleteSubscriptionResult, err := snsClient.Unsubscribe(*ctx, &deleteSubscriptionInput)
+	errorHandle("failed to delete subscription of channel", err, true)
 
-// 	result <- deleteSubscriptionResult
-// }
+	result <- deleteSubscriptionResult
+}
 
 func handleDeleteChannelRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	// Parse chosen name from json body request.
-	var choiceName string
+	var choiceID string
 	var decodedData map[string]interface{}
 
 	err := json.Unmarshal([]byte(request.Body), &decodedData)
 	errorHandle("json.Unmarshal error", err, true)
 
-	if value, ok := decodedData["name"]; !ok {
-		fmt.Println("No name key in json body.")
+	if value, ok := decodedData["id"]; !ok {
+		fmt.Println("No id key in json body.")
 		return events.APIGatewayProxyResponse{}, nil
 	} else {
-		choiceName = value.(string)
+		choiceID = value.(string)
 	}
 
 	// Set up aws sdk config.
@@ -253,13 +219,13 @@ func handleDeleteChannelRequest(ctx context.Context, request events.APIGatewayPr
 	// TABLE
 	// Delete channel's table.
 	deleteTableChannel := make(chan *dynamodb.DeleteTableOutput)
-	go deleteTable(choiceName, &ctx, dynamoClient, deleteTableChannel)
+	go deleteTable(choiceID, &ctx, dynamoClient, deleteTableChannel)
 	<-deleteTableChannel
 
 	// QUEUE
 	// Get the URL of the channel's SQS queue.
 	getQueueURLChannel := make(chan *sqs.GetQueueUrlOutput)
-	go getQueueURL(choiceName, &ctx, sqsClient, getQueueURLChannel)
+	go getQueueURL(choiceID, &ctx, sqsClient, getQueueURLChannel)
 	getQueueURLResult := <-getQueueURLChannel
 
 	// Delete channel's SQS queue.
@@ -270,24 +236,13 @@ func handleDeleteChannelRequest(ctx context.Context, request events.APIGatewayPr
 	// TOPIC
 	// List all the SNS topics, then get the ARN of the channel's endpoint topic.
 	getTopicARNChannel := make(chan string)
-	go getTopicARN(choiceName, &ctx, snsClient, getTopicARNChannel)
+	go getTopicARN(choiceID, &ctx, snsClient, getTopicARNChannel)
 	topicARN := <-getTopicARNChannel
 
 	// Delete channel's SNS endpoint topic.
 	deleteTopicChannel := make(chan *sns.DeleteTopicOutput)
 	go deleteTopic(topicARN, &ctx, snsClient, deleteTopicChannel)
 	<-deleteTopicChannel
-
-	// METACHANNEL TABLE
-	// Get ID of channel.
-	getChannelIDChannel := make(chan string)
-	go getChannelID(choiceName, &ctx, dynamoClient, getChannelIDChannel)
-	channelID := <-getChannelIDChannel
-
-	// Remove the channel's entry in MetaChannelTable
-	removeEntryMetaChannelTableChannel := make(chan *dynamodb.DeleteItemOutput)
-	go removeEntryMetaChannelTable(channelID, &ctx, dynamoClient, removeEntryMetaChannelTableChannel)
-	<-removeEntryMetaChannelTableChannel
 
 	// LAMBDA
 	// Get ARN of the handleMessageQueue lambda.
@@ -297,7 +252,7 @@ func handleDeleteChannelRequest(ctx context.Context, request events.APIGatewayPr
 
 	// Get the event source mapping between the handleMessageQueue lambad and the now non-existent SQS queue.
 	getEventSourceMappingChannel := make(chan string)
-	go getEventSourceMapping(choiceName, *getHandleMessageQueueARNResult.Parameter.Value, &ctx, lambdaClient, getEventSourceMappingChannel)
+	go getEventSourceMapping(choiceID, *getHandleMessageQueueARNResult.Parameter.Value, &ctx, lambdaClient, getEventSourceMappingChannel)
 	eventSourceMappingUUID := <-getEventSourceMappingChannel
 
 	// Delete the event source mapping.
@@ -307,14 +262,22 @@ func handleDeleteChannelRequest(ctx context.Context, request events.APIGatewayPr
 
 	// SUBSCRIPTION
 	// Get ARN of channel's queue's subscription to metaTopic.
-	// getSubscriptionARNChannel := make(chan string)
-	// go getSubscriptionARN(choiceName, &ctx, dynamoClient, getSubscriptionARNChannel)
-	// subscriptionARN := <-getSubscriptionARNChannel
+	getSubscriptionARNChannel := make(chan string)
+	go getSubscriptionARN(choiceID, &ctx, dynamoClient, getSubscriptionARNChannel)
+	subscriptionARN := <-getSubscriptionARNChannel
+
+	fmt.Printf("subscriptionARN in primary function:%v\n", subscriptionARN)
 
 	// Delete said subscription.
-	// deleteSubscriptionChannel := make(chan *sns.UnsubscribeOutput)
-	// go deleteSubscription(subscriptionARN, &ctx, snsClient, deleteSubscriptionChannel)
-	// <-deleteSubscriptionChannel
+	deleteSubscriptionChannel := make(chan *sns.UnsubscribeOutput)
+	go deleteSubscription(subscriptionARN, &ctx, snsClient, deleteSubscriptionChannel)
+	<-deleteSubscriptionChannel
+
+	// METACHANNEL TABLE
+	// Remove the channel's entry in MetaChannelTable
+	removeEntryMetaChannelTableChannel := make(chan *dynamodb.DeleteItemOutput)
+	go removeEntryMetaChannelTable(choiceID, &ctx, dynamoClient, removeEntryMetaChannelTableChannel)
+	<-removeEntryMetaChannelTableChannel
 
 	// ENDING
 	return events.APIGatewayProxyResponse{

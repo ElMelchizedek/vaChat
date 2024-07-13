@@ -16,15 +16,12 @@
         "EndpointTopicARN": {
             "Value": "arn:aws:sns:{region}:{account}:{Name}EndpointTopic"
         },
-        "Name": {
-            "Value": string
-        },
         "QueueARN": {
             "Value": "arn:aws:sqs:{region}:{account}:{Name}ChannelQueue" 
         },
         "TableARN": {
             "Value": "arn:aws:dynamodb:{region}:{acount}:table/{Name}table" 
-        }
+        },
     },
     ...
 ]
@@ -40,10 +37,12 @@
 **Output**
 ```json
 {
+    "ID": string,
+    "Alias": string,
     "EndpointTopicARN": "arn:aws:sns:{region}:{account}:{Name}EndpointTopic",
-    "Name": string,
     "QueueARN": "arn:aws:sqs:{region}:{account}:{Name}ChannelQueue",
-    "TableARN": "arn:aws:dynamodb:{region}:{acount}:table/{Name}table"
+    "TableARN": "arn:aws:dynamodb:{region}:{acount}:table/{Name}table",
+    "SubscriptionARN": "arn:aws:sns:ap-southeast-2:891377059446:metaTopic",
 }
 ```
 
@@ -72,7 +71,7 @@
 **Input**
 ```json
 {
-    "name": string
+    "id": string
 }
 ```
 **Output**

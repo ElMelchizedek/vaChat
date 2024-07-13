@@ -111,6 +111,8 @@ export class BackendStack extends cdk.Stack {
                 'dynamodb:DeleteItem',
                 'dynamodb:DescribeTable',
                 'dynamodb:Scan',
+                'dynamodb:Query',
+                'dynamodb:GetItem',
                 // SNS
                 'sns:ListTopics',
                 'sns:DeleteTopic',
@@ -214,13 +216,5 @@ export class BackendStack extends cdk.Stack {
             ],
             scope: this,
         });
-
-        // Create SSM Prameter to track how many channels there are, as AWS' item count of the MetaChannelTable updates too slowly (every 6 hours).
-        // TO DO: Make webserver sync the value of the parameter if there is a discrepancy between it and the amount of entries it recieves from /getChannel?type=all
-        const channelCountParam = customSSM.newGenericParamOther({
-            name: "channelCount",
-            value: "0",
-            scope: this,
-        })
     }
 }

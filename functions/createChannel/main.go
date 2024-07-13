@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand/v2"
 	"strconv"
 	"strings"
 
@@ -227,32 +228,6 @@ func addEventSourceQueue(queueARN string, lambdaARN string, ctx *context.Context
 	result <- addEventSourceQueueResult
 }
 
-func getChannelCount(ctx *context.Context, ssmClient *ssm.Client, result chan string) {
-	getChannelCountInput := ssm.GetParameterInput{
-		Name: aws.String("channelCount"),
-	}
-	getChannelCountResponse, err := ssmClient.GetParameter(*ctx, &getChannelCountInput)
-	errorHandle("failed to get channelCount parameter", err, true)
-	result <- *getChannelCountResponse.Parameter.Value
-}
-
-func iterateChannelCount(channelCount string, ctx *context.Context, ssmClient *ssm.Client, result chan string) {
-	rawCount, err := strconv.Atoi(channelCount)
-	errorHandle("failed to convert channelCount from string to integer", err, true)
-
-	rawCount++
-	newCount := strconv.Itoa(rawCount)
-
-	iterateChannelCountInput := ssm.PutParameterInput{
-		Name:      aws.String("channelCount"),
-		Overwrite: aws.Bool(true),
-		Value:     aws.String(newCount),
-	}
-	_, err = ssmClient.PutParameter(*ctx, &iterateChannelCountInput)
-	errorHandle("failed to put new iterated value into channelCount parameter", err, true)
-	result <- newCount
-}
-
 func addEntryMetaChannelTable(entriesMetaChannelTable int, name string, tableARN string, queueARN string, topicARN string, subscriptionARN string, ctx *context.Context,
 	dynamoClient *dynamodb.Client, result chan *dynamodb.PutItemOutput) {
 	addEntryMetaChannelTableInput := dynamodb.PutItemInput{
@@ -315,16 +290,8 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	var lambdaClient *lambda.Client = lambda.NewFromConfig(cfg)
 
 	// INITIAL
-	// Get current channel count parameter
-	getChannelCountChannel := make(chan string)
-	go getChannelCount(&ctx, ssmClient, getChannelCountChannel)
-	channelCount := <-getChannelCountChannel
-
-	// Iterate channel count parameter
-	iterateChannelCountChannel := make(chan string)
-	go iterateChannelCount(channelCount, &ctx, ssmClient, iterateChannelCountChannel)
-	newID, err := strconv.Atoi(<-iterateChannelCountChannel)
-	errorHandle("failed to convert newID back into integer", err, true)
+	// Generate random ID.
+	var newID int = rand.IntN(999999999)
 
 	// TABLE
 	// Create new channel's table.
