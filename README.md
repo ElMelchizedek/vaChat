@@ -46,7 +46,7 @@
 **Output**
 ```json
 {
-    "ID": string,
+    "ID": string(number),
     "Alias": string,
     "EndpointTopicARN": "arn:aws:sns:{region}:{account}:{ID}EndpointTopic",
     "QueueARN": "arn:aws:sqs:{region}:{account}:{ID}ChannelQueue",
