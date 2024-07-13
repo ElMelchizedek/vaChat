@@ -13,6 +13,12 @@
 ```json
 [
     {
+        "ID": {
+            "Value": string(number),
+        },
+        "Alias": {
+            "Value": string,
+        }
         "EndpointTopicARN": {
             "Value": "arn:aws:sns:{region}:{account}:{Name}EndpointTopic"
         },
@@ -21,6 +27,9 @@
         },
         "TableARN": {
             "Value": "arn:aws:dynamodb:{region}:{acount}:table/{Name}table" 
+        },
+        "SubscriptionARN": {
+            "Value": "arn:aws:sns:ap-southeast-2:891377059446:metaTopic"
         },
     },
     ...
@@ -50,7 +59,7 @@
 **Input**
 ```json
 {
-    "channel": string,
+    "channel": string(number),
     "account": string(number),
     "request": {
         "action": string,
@@ -61,6 +70,7 @@
             {
                 "Key2": "Value2",
             },
+            ...
         ]
     }
 }

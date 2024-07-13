@@ -39,13 +39,12 @@ type SQSEvent struct {
 
 func sendToTopic(ctx context.Context, snsClient *sns.Client, body SQSMessage) error {
 	messageContent := body.Message
-	// messageChannel := body.MessageAttributes.Channel.Value
+	messageChannel := body.MessageAttributes.Channel.Value
 	messageAccount := body.MessageAttributes.Account.Value
 	messageTime := body.MessageAttributes.Timestamp.Value
 
 	_, err := snsClient.Publish(ctx, &sns.PublishInput{
-		// FIX THIS! WE AREN'T PUTTING ENDPOINT TOPIC ARNS IN PARAMETER STORE ANYMORE!
-		TargetArn: aws.String("ARN HERE"),
+		TargetArn: aws.String(messageChannel),
 		Message:   &messageContent,
 		MessageAttributes: map[string]snstypes.MessageAttributeValue{
 			"account": {
