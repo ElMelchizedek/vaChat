@@ -97,7 +97,7 @@ nil
 **Input**
 ```json
 {
-    "channel": string,
+    "channel": string(number),
     "account": string(number),
     "timestamp": string(number),
     "message": string
