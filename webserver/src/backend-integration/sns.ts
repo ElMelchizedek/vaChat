@@ -4,6 +4,23 @@ import { SNS } from "@aws-sdk/client-sns"
 
 import { credentials } from "./credentials"
 
+const {
+    WEBSERVER_IP: IP,
+    SNS_PROTOCOL: protocol,
+    WEBSERVER_PORT: port,
+    SNS_PATH: path,
+} = process.env
+
+if(!IP) {
+    throw new Error("IP environment variable not set")
+} else if(!protocol) {
+    throw new Error("SNS_PROTOCOL environment variable not set")
+} else if(!port) {
+    throw new Error("WEBSERVER_PORT environment variable not set")
+} else if(!path) {
+    throw new Error("SNS_PATH environment variable not set")
+}
+
 type SubscriptionConfirmation = {
     Type: string,
     Token: string,
@@ -42,9 +59,9 @@ const sns = new SNS({
 
 export const subscribeToChannel = async (channel: string) =>
     await sns.subscribe({
-        Protocol: "http",
+        Protocol: protocol,
         TopicArn: channel,
-        Endpoint: `http://${process.env.IP}:3000/sns-ingest`
+        Endpoint: `${protocol}://${IP}:${port}/${path}`
     })
 
 
@@ -53,19 +70,20 @@ export const subscribeToChannel = async (channel: string) =>
 export const snsIngest = async (updateClients: (message: Notification) => void) =>
     (app: Elysia) =>
         app.post(
-            '/sns-ingest', 
+            `/${path}`, 
             async ({ headers, body }) => {
                 const messageType = headers["x-amz-sns-message-type"]
-
+                console.log(body);
                 switch(messageType) {
                     case "SubscriptionConfirmation": {
                         const message = JSON.parse(body) as SubscriptionConfirmation
             
-                        await sns.confirmSubscription({
+                        const subscriptionConfirmation = await sns.confirmSubscription({
                             Token: message.Token,
                             TopicArn: message.TopicArn
                         })
 
+                        console.log("Subscription Confirmation Message:\n", JSON.stringify(subscriptionConfirmation))
                         console.log("Subscription confirmed")
 
                         break
@@ -74,9 +92,11 @@ export const snsIngest = async (updateClients: (message: Notification) => void) 
                     case "Notification": {
                         const message = JSON.parse(body) as Notification
 
+                        console.log("Before Update Client\n");
                         updateClients(message)
+                        console.log("After Update Client\n");
 
-                        console.log("Message received: ", message.Message)
+                        console.log("SNS Message received: ", message.Message)
 
                         break
                     }

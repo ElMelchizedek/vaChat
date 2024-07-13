@@ -3,7 +3,7 @@
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.tsx"
+    "dev": "bun run --watch src/main.tsx"
   },
   "dependencies": {
     "@aws-sdk/client-sns": "^3.600.0",
@@ -15,5 +15,5 @@
   "devDependencies": {
     "bun-types": "latest"
   },
-  "module": "src/index.js"
+  "module": "src/main.js"
 }
