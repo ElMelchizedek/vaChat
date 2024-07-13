@@ -4,3 +4,6 @@ node_modules/
 cdk.out/
 test/
 bun.lockb
+*.zip
+bootstrap
+test.json

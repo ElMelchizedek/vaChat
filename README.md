@@ -17,18 +17,24 @@
 ```json
 [
     {
-        "EndpointTopicARN": {
-            "Value": "arn:aws:sns:{region}:{account}:{Name}EndpointTopic"
+        "ID": {
+            "Value": string(number),
         },
-        "Name": {
-            "Value": string
+        "Alias": {
+            "Value": string,
+        }
+        "EndpointTopicARN": {
+            "Value": "arn:aws:sns:{region}:{account}:{ID}EndpointTopic"
         },
         "QueueARN": {
-            "Value": "arn:aws:sqs:{region}:{account}:{Name}ChannelQueue" 
+            "Value": "arn:aws:sqs:{region}:{account}:{ID}ChannelQueue" 
         },
         "TableARN": {
-            "Value": "arn:aws:dynamodb:{region}:{acount}:table/{Name}table" 
-        }
+            "Value": "arn:aws:dynamodb:{region}:{acount}:table/{ID}table" 
+        },
+        "SubscriptionARN": {
+            "Value": "arn:aws:sns:{region}:{account}:metaTopic:{subscription id}"
+        },
     },
     ...
 ]
@@ -44,18 +50,46 @@
 **Output**
 ```json
 {
-    "EndpointTopicARN": "arn:aws:sns:{region}:{account}:{Name}EndpointTopic",
-    "Name": string,
-    "QueueARN": "arn:aws:sqs:{region}:{account}:{Name}ChannelQueue",
-    "TableARN": "arn:aws:dynamodb:{region}:{acount}:table/{Name}table"
+    "ID": string(number),
+    "Alias": string,
+    "EndpointTopicARN": "arn:aws:sns:{region}:{account}:{ID}EndpointTopic",
+    "QueueARN": "arn:aws:sqs:{region}:{account}:{ID}ChannelQueue",
+    "TableARN": "arn:aws:dynamodb:{region}:{acount}:table/{ID}table",
+    "SubscriptionARN": "arn:aws:sns:{region}:{account}:metaTopic:{subscription id}",
 }
 ```
+
+#### /updateChannel
+**Input**
+```json
+{
+    "channel": string(number),
+    "account": string(number),
+    "request": {
+        "action": string,
+        "parameters": [
+            {
+                "Key1": "Value1",
+            },
+            {
+                "Key2": "Value2",
+            },
+            ...
+        ]
+    }
+}
+```
+**Output**
+```json
+nil
+```
+
 
 #### /deleteChannel
 **Input**
 ```json
 {
-    "name": string
+    "id": string
 }
 ```
 **Output**
@@ -69,7 +103,7 @@ nil
 
 ```json
 {
-    "channel": string,
+    "channel": string(number),
     "account": string(number),
     "timestamp": string(number),
     "message": string

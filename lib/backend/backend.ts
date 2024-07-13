@@ -10,6 +10,7 @@ export class BackendStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
         
+        // TO DO: Automate this.
         // Lambdas.
         const functionHandleMessageQueue = customLambda.newGoLambda({
             name: "handleMessageQueue",
@@ -31,13 +32,20 @@ export class BackendStack extends cdk.Stack {
             name: "deleteChannel",
             scope: this,
         })
+        const functionUpdateChannel = customLambda.newGoLambda({
+            name: "updateChannel",
+            scope: this,
+        })
 
+        // TO DO: Automate this.
         // Give lambdas permissions where necessary.
         const permissionsCreateChannel = new cdk.aws_iam.PolicyStatement({
             actions: [
                 // DynamoDB
                 'dynamodb:CreateTable',
                 'dynamodb:PutItem',
+                'dynamodb:DescribeTable',
+                'dynamodb:Scan',
                 // SQS
                 'sqs:CreateQueue',
                 'sqs:GetQueueAttributes',
@@ -49,6 +57,7 @@ export class BackendStack extends cdk.Stack {
                 'ssm:GetParameter',
                 'ssm:GetParameters',
                 'ssm:GetParametersByPath',
+                'ssm:PutParameter',
                 // Lambda
                 'lambda:CreateEventSourceMapping'
             ],
@@ -100,16 +109,47 @@ export class BackendStack extends cdk.Stack {
                 // DynamoDB
                 'dynamodb:DeleteTable',
                 'dynamodb:DeleteItem',
+                'dynamodb:DescribeTable',
+                'dynamodb:Scan',
+                'dynamodb:Query',
+                'dynamodb:GetItem',
                 // SNS
                 'sns:ListTopics',
                 'sns:DeleteTopic',
                 // SQS
                 'sqs:GetQueueUrl',
                 'sqs:DeleteQueue',
+                // SSM
+                'ssm:GetParameter',
+                'ssm:GetParameters',
+                'ssm:GetParametersByPath',
+                'ssm:PutParameter',
+                // Lambda
+                'lambda:ListEventSourceMappings',
+                'lambda:DeleteEventSourceMapping',
             ],
             resources: ['*'],
         });
         functionDeleteChannel.addToRolePolicy(permissionsDeleteChannel);
+
+        const permissionsUpdateChannel = new cdk.aws_iam.PolicyStatement({
+            actions: [
+                // DynamoDB
+                'dynamodb:GetItem',
+                'dynamodb:UpdateItem',
+                'dynamodb:DescribeTable',
+                'dynamodb:Scan',
+                // SNS
+                'sns:SetSubscriptionAttributes',
+                // SSM
+                'ssm:GetParameter',
+                'ssm:GetParameters',
+                'ssm:GetParametersByPath',
+                'ssm:PutParameter',
+            ],
+            resources: ['*'],
+        });
+        functionUpdateChannel.addToRolePolicy(permissionsUpdateChannel);
         
         // Add resource-based policy to handleMessageQueue to allow any SQS queue to invoke it.
         functionHandleMessageQueue.addPermission("AllowSQSTrigger", {
@@ -132,7 +172,6 @@ export class BackendStack extends cdk.Stack {
             function: functionGetChannel,
             scope: this,
         });
-
 
         // Make metaTopic's ARN a parameter, to be read by the SendMessage lambda so that it can publish to it.
         const metaTopicARN = customSSM.newGenericParamTopicARN({
@@ -169,10 +208,13 @@ export class BackendStack extends cdk.Stack {
                 {
                     name: "deleteChannel",
                     function: functionDeleteChannel,
+                },
+                {
+                    name: "updateChannel",
+                    function: functionUpdateChannel,
                 }
             ],
             scope: this,
         });
-
     }
 }
