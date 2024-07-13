@@ -20,16 +20,16 @@
             "Value": string,
         }
         "EndpointTopicARN": {
-            "Value": "arn:aws:sns:{region}:{account}:{Name}EndpointTopic"
+            "Value": "arn:aws:sns:{region}:{account}:{ID}EndpointTopic"
         },
         "QueueARN": {
-            "Value": "arn:aws:sqs:{region}:{account}:{Name}ChannelQueue" 
+            "Value": "arn:aws:sqs:{region}:{account}:{ID}ChannelQueue" 
         },
         "TableARN": {
-            "Value": "arn:aws:dynamodb:{region}:{acount}:table/{Name}table" 
+            "Value": "arn:aws:dynamodb:{region}:{acount}:table/{ID}table" 
         },
         "SubscriptionARN": {
-            "Value": "arn:aws:sns:ap-southeast-2:891377059446:metaTopic"
+            "Value": "arn:aws:sns:{region}:{account}:metaTopic:{subscription id}"
         },
     },
     ...
@@ -48,10 +48,10 @@
 {
     "ID": string,
     "Alias": string,
-    "EndpointTopicARN": "arn:aws:sns:{region}:{account}:{Name}EndpointTopic",
-    "QueueARN": "arn:aws:sqs:{region}:{account}:{Name}ChannelQueue",
-    "TableARN": "arn:aws:dynamodb:{region}:{acount}:table/{Name}table",
-    "SubscriptionARN": "arn:aws:sns:ap-southeast-2:891377059446:metaTopic",
+    "EndpointTopicARN": "arn:aws:sns:{region}:{account}:{ID}EndpointTopic",
+    "QueueARN": "arn:aws:sqs:{region}:{account}:{ID}ChannelQueue",
+    "TableARN": "arn:aws:dynamodb:{region}:{acount}:table/{ID}table",
+    "SubscriptionARN": "arn:aws:sns:{region}:{account}:metaTopic:{subscription id}",
 }
 ```
 
