@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
@@ -29,6 +28,9 @@ type SQSMessage struct {
 		Timestamp struct {
 			Value string `json:"Value"`
 		} `json:"timestamp"`
+		Topic struct {
+			Value string `json:"Value"`
+		} `json:"topic"`
 	} `json:"MessageAttributes"`
 }
 
@@ -38,23 +40,15 @@ type SQSEvent struct {
 	} `json:"Records"`
 }
 
-func sendToTopic(ctx context.Context, snsClient *sns.Client, ssmClient *ssm.Client, body SQSMessage) error {
+func sendToTopic(ctx context.Context, snsClient *sns.Client, body SQSMessage) error {
 	messageContent := body.Message
 	messageChannel := body.MessageAttributes.Channel.Value
 	messageAccount := body.MessageAttributes.Account.Value
 	messageTime := body.MessageAttributes.Timestamp.Value
+	messageTopic := body.MessageAttributes.Topic.Value
 
-	paramName := fmt.Sprintf("channelTopic%sARN", messageChannel)
-
-	paramResponse, err := ssmClient.GetParameter(ctx, &ssm.GetParameterInput{
-		Name: &paramName,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get parameter: %w", err)
-	}
-
-	_, err = snsClient.Publish(ctx, &sns.PublishInput{
-		TargetArn: paramResponse.Parameter.Value,
+	_, err := snsClient.Publish(ctx, &sns.PublishInput{
+		TargetArn: aws.String(messageTopic),
 		Message:   &messageContent,
 		MessageAttributes: map[string]snstypes.MessageAttributeValue{
 			"account": {
@@ -64,6 +58,10 @@ func sendToTopic(ctx context.Context, snsClient *sns.Client, ssmClient *ssm.Clie
 			"timestamp": {
 				DataType:    aws.String("Number"),
 				StringValue: aws.String(messageTime),
+			},
+			"channel": {
+				DataType:    aws.String("Number"),
+				StringValue: aws.String(messageChannel),
 			},
 		},
 	})
@@ -81,7 +79,6 @@ func handler(ctx context.Context, event SQSEvent) error {
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(cfg)
-	ssmClient := ssm.NewFromConfig(cfg)
 	snsClient := sns.NewFromConfig(cfg)
 
 	for _, record := range event.Records {
@@ -95,6 +92,7 @@ func handler(ctx context.Context, event SQSEvent) error {
 		messageChannel := body.MessageAttributes.Channel.Value
 		messageAccount := body.MessageAttributes.Account.Value
 		messageTime := body.MessageAttributes.Timestamp.Value
+		messageTopic := body.MessageAttributes.Topic.Value
 
 		tableName := messageChannel + "Table"
 
@@ -113,10 +111,11 @@ func handler(ctx context.Context, event SQSEvent) error {
 		_, err = dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
 			TableName: &tableName,
 			Item: map[string]types.AttributeValue{
-				"channel": &types.AttributeValueMemberS{Value: messageChannel},
-				"account": &types.AttributeValueMemberN{Value: strconv.Itoa(messageAccountNum)},
-				"time":    &types.AttributeValueMemberN{Value: strconv.Itoa(messageTimeNum)},
-				"content": &types.AttributeValueMemberS{Value: messageContent},
+        "channel":   &types.AttributeValueMemberS{Value: strconv.Itoa(messageChannel)},
+				"account":   &types.AttributeValueMemberN{Value: strconv.Itoa(messageAccountNum)},
+				"timestamp": &types.AttributeValueMemberN{Value: strconv.Itoa(messageTimeNum)},
+				"content":   &types.AttributeValueMemberS{Value: messageContent},
+				"topic":     &types.AttributeValueMemberS{Value: messageTopic},
 			},
 		})
 		if err != nil {
@@ -124,7 +123,7 @@ func handler(ctx context.Context, event SQSEvent) error {
 			continue
 		}
 
-		if err := sendToTopic(ctx, snsClient, ssmClient, body); err != nil {
+		if err := sendToTopic(ctx, snsClient, body); err != nil {
 			log.Printf("Failed to send message to SNS topic: %v", err)
 			continue
 		}

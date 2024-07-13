@@ -1,63 +1,98 @@
-// Writted by Brendan Arnold
-
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-func HandleChannelRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	cfg, err := config.LoadDefaultConfig(ctx,
+func printStructContents[T any](selectStruct T) {
+	t := reflect.TypeOf(selectStruct)
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		value := reflect.ValueOf(selectStruct).Field(i).Interface()
+		fmt.Printf("%s: %v\n", field.Name, value)
+	}
+}
+
+type ReturnGetAllChannels struct {
+	response events.APIGatewayProxyResponse
+	err      error
+	output   *dynamodb.ScanOutput
+}
+
+func getAllChannels(ctx *context.Context) *ReturnGetAllChannels {
+	var cfg aws.Config
+	var err error
+	cfg, err = config.LoadDefaultConfig(*ctx,
 		config.WithRegion("ap-southeast-2"),
 	)
 	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("Failed to initialise SDK with default configuration: %v", err)
+		return &ReturnGetAllChannels{
+			events.APIGatewayProxyResponse{},
+			fmt.Errorf("failed to initialise SDK with default configuration: %v", err),
+			nil}
 	}
 
-	client := dynamodb.NewFromConfig(cfg)
-
-	input := &dynamodb.GetItemInput{
-		// Temp name
-		TableName: aws.String("ChannelTable"),
-		Key: map[string]types.AttributeValue{
-			"PrimaryKey": &types.AttributeValueMemberS{
-				Value: "VALUE_HERE",
-			},
-		},
-		ProjectionExpression: aws.String("ARN"),
+	var client *dynamodb.Client = dynamodb.NewFromConfig(cfg)
+	var input *dynamodb.ScanInput = &dynamodb.ScanInput{
+		TableName: aws.String("MetaChannelTable"),
 	}
 
-	resp, err := client.GetItem(ctx, input)
+	result, err := client.Scan(*ctx, input)
 	if err != nil {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("DynamoDB GetItem command failed: %v", err)
+		return &ReturnGetAllChannels{
+			events.APIGatewayProxyResponse{},
+			fmt.Errorf("failed to perform Scan function on table %v: %v", input.TableName, err),
+			nil}
 	}
 
-	// Check if the item was found
-	if resp.Item == nil {
-		return events.APIGatewayProxyResponse{StatusCode: 404, Body: "Failed to get specified item from ChannelTable"}, nil
+	return &ReturnGetAllChannels{
+		events.APIGatewayProxyResponse{},
+		nil,
+		result}
+}
+
+func handleGetChannelRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	printStructContents(request)
+	var query map[string]string = request.QueryStringParameters
+
+	var choice string
+	var response ReturnGetAllChannels
+
+	if value, ok := query["type"]; !ok {
+		return events.APIGatewayProxyResponse{}, nil
+	} else {
+		choice = value
 	}
 
-	// Extract and prepare the response
-	attributeValue, found := resp.Item["attributeName"]
-	if !found {
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("Failed to get specified attribute \"ARN\" from ChannnelTable")
+	switch choice {
+	case "all":
+		response = *getAllChannels(&ctx)
+	default:
+		fmt.Println("Unsupported type specified.")
+		return events.APIGatewayProxyResponse{}, nil
 	}
-	responseBody := fmt.Sprintf("Specified Channel ARN: %s", attributeValue.(*types.AttributeValueMemberS).Value)
+
+	parsedData, err := json.Marshal(response.output.Items)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, fmt.Errorf("failed parsing json to return in response body: %v", err)
+	}
+	fmt.Println(string(parsedData))
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
-		Body:       responseBody,
+		Body:       string(parsedData),
 	}, nil
 }
 
 func main() {
-	lambda.Start(HandleChannelRequest)
+	lambda.Start(handleGetChannelRequest)
 }
