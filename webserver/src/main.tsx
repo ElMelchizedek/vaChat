@@ -80,7 +80,11 @@ new Elysia()
                     <body  hx-ext="ws" ws-connect="/ws-main">
                         <h1>Message others</h1>
 
-                        <select id="channel-select" name="channel" hx-get="/changeChannel" hx-trigger="change">
+                        <select id="channel-select" name="channel"
+                            hx-get="/changeChannel"
+                            hx-trigger="change"
+                            hx-target="#messages"
+                            hx-swap="outerHTML">
                             {
                                 channelInfo.map(
                                     (channel) =>
@@ -103,10 +107,13 @@ new Elysia()
     .get('/changeChannel', 
         async ({ query, cookie }) => {
             const sessionId = cookie.session.value
+            
+            console.log("query.channel:\n", query.channel)
 
             const client = sessions.get(sessionId)!
-            client.clearHistory()
             client.subscribedTo = query.channel
+
+            return <div id="messages" />
         }, 
         {
             query: t.Object({
@@ -125,9 +132,12 @@ new Elysia()
             // send message to clients
             (message) => {
                 sessions.forEach(
-                    (client) => {
+                    async (client) => {
+                        console.log("message in .use(snsIngent)\n:", message);
+                        console.log("client.subscribedTo:\n", client.subscribedTo);
+                        console.log("message.MessageAttributes.channel.Value:\n", message.MessageAttributes.channel.Value);
                         if (client.subscribedTo === message.MessageAttributes.channel.Value) {
-                            client.sendMessage(
+                            await client.sendMessage(
                                 message.MessageAttributes.account.Value, 
                                 message.Message
                             )

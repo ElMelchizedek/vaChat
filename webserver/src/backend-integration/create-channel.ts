@@ -6,25 +6,31 @@ if(!url) {
     throw new Error("API_URL environment variable not set")
 }
 
-export const createChannel = async (name: string) =>
-    await fetch(
-        `${url}/createChannel/`,
-        { 
+export const createChannel = async (name: string) => {
+    const requestURL: string = `${url}/createChannel`;
+    console.log(`URL\n${requestURL}\n`);
+    try {
+        const response = await fetch(requestURL, {
             method: "POST",
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
-
-            body: JSON.stringify({ name })
+            body: name,
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to perform POST request on /createChannel: ${response}`);
         }
-    )
-        .then(response => response.json())
-        .then(
-            data => data.channels as {
-                Name: string
-                EndpointTopicARN: string
-                QueueARN: string
-                TableARN: string
-            }
-        )
-        .catch(error => console.error(error))
+        console.log("\nResponse\n", response);
+        const json = await response.json();
+        console.log("\nJSON\n", json);
+        const strinigifed = await JSON.stringify(json);
+        console.log("\nStringified\n", strinigifed);
+        return json;
+    } catch (error) {
+        let message = "Unknown Error";
+        if (error instanceof Error) {
+            message = error.message
+        }
+        console.log(message)
+    }
+}

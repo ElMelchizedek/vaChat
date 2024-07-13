@@ -28,6 +28,9 @@ type SQSMessage struct {
 		Timestamp struct {
 			Value string `json:"Value"`
 		} `json:"timestamp"`
+		Topic struct {
+			Value string `json:"Value"`
+		} `json:"topic"`
 	} `json:"MessageAttributes"`
 }
 
@@ -42,9 +45,10 @@ func sendToTopic(ctx context.Context, snsClient *sns.Client, body SQSMessage) er
 	messageChannel := body.MessageAttributes.Channel.Value
 	messageAccount := body.MessageAttributes.Account.Value
 	messageTime := body.MessageAttributes.Timestamp.Value
+	messageTopic := body.MessageAttributes.Topic.Value
 
 	_, err := snsClient.Publish(ctx, &sns.PublishInput{
-		TargetArn: aws.String(messageChannel),
+		TargetArn: aws.String(messageTopic),
 		Message:   &messageContent,
 		MessageAttributes: map[string]snstypes.MessageAttributeValue{
 			"account": {
@@ -54,6 +58,10 @@ func sendToTopic(ctx context.Context, snsClient *sns.Client, body SQSMessage) er
 			"timestamp": {
 				DataType:    aws.String("Number"),
 				StringValue: aws.String(messageTime),
+			},
+			"channel": {
+				DataType:    aws.String("Number"),
+				StringValue: aws.String(messageChannel),
 			},
 		},
 	})
@@ -84,6 +92,7 @@ func handler(ctx context.Context, event SQSEvent) error {
 		messageChannel := body.MessageAttributes.Channel.Value
 		messageAccount := body.MessageAttributes.Account.Value
 		messageTime := body.MessageAttributes.Timestamp.Value
+		messageTopic := body.MessageAttributes.Topic.Value
 
 		tableName := messageChannel + "Table"
 
@@ -102,10 +111,11 @@ func handler(ctx context.Context, event SQSEvent) error {
 		_, err = dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
 			TableName: &tableName,
 			Item: map[string]types.AttributeValue{
-				"channel":   &types.AttributeValueMemberS{Value: messageChannel},
+        "channel":   &types.AttributeValueMemberS{Value: strconv.Itoa(messageChannel)},
 				"account":   &types.AttributeValueMemberN{Value: strconv.Itoa(messageAccountNum)},
 				"timestamp": &types.AttributeValueMemberN{Value: strconv.Itoa(messageTimeNum)},
 				"content":   &types.AttributeValueMemberS{Value: messageContent},
+				"topic":     &types.AttributeValueMemberS{Value: messageTopic},
 			},
 		})
 		if err != nil {
