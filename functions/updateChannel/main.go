@@ -55,64 +55,28 @@ func cleanSelfMadeJson(rawValue map[string]interface{}) string {
 }
 
 // *** SERVICE FUNCTIONS *** //
-func getChannelID(name string, ctx *context.Context, dynamoClient *dynamodb.Client, result chan string) {
-	getChannelIDInput := dynamodb.ScanInput{
-		TableName:        aws.String("MetaChannelTable"),
-		FilterExpression: aws.String(fmt.Sprintf("%s = :v", "Alias")),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":v": &types.AttributeValueMemberS{
-				Value: name,
-			},
+func getSubscriptionARN(id string, ctx *context.Context, dynamoClient *dynamodb.Client, result chan string) {
+	getSubscriptionARNInput := dynamodb.GetItemInput{
+		TableName: aws.String("MetaChannelTable"),
+		Key: map[string]types.AttributeValue{
+			"ID": &types.AttributeValueMemberN{Value: id},
 		},
+		ProjectionExpression: aws.String("SubscriptionARN"),
 	}
 
-	fmt.Printf("name in getChannelID:%v\n", name)
+	getSubscriptionARNResult, err := dynamoClient.GetItem(*ctx, &getSubscriptionARNInput)
+	errorHandle("failed to query MetaChannelTable for subscription ARN", err, true)
 
-	getChannelIDResult, err := dynamoClient.Scan(*ctx, &getChannelIDInput)
-	errorHandle("failed to scan MetaChannelTable to find ID of channel", err, true)
-
-	if len(getChannelIDResult.Items) == 0 {
+	if len(getSubscriptionARNResult.Item) == 0 {
 		errorHandle("no results from scanning of ID for specified channel", nil, false)
 	}
 
-	var channelID string
-	for _, item := range getChannelIDResult.Items {
-		channelID = item["ID"].(*types.AttributeValueMemberN).Value
-	}
+	channelID := getSubscriptionARNResult.Item["SubscriptionARN"].(*types.AttributeValueMemberS).Value
 	if channelID == "" {
 		errorHandle("could not find ID for specified channel", nil, false)
 	}
 
 	result <- channelID
-}
-
-func getSubscriptionARN(name string, ctx *context.Context, dynamoClient *dynamodb.Client, result chan string) {
-	getSubscriptionARNInput := dynamodb.ScanInput{
-		TableName:        aws.String("MetaChannelTable"),
-		FilterExpression: aws.String(fmt.Sprintf("%s = :v", "Alias")),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":v": &types.AttributeValueMemberS{
-				Value: name,
-			},
-		},
-	}
-
-	getSubscriptionARNResult, err := dynamoClient.Scan(*ctx, &getSubscriptionARNInput)
-	errorHandle("failed to scan MetaChannelTable to find subscription ARN of channel", err, true)
-
-	if len(getSubscriptionARNResult.Items) == 0 {
-		errorHandle("no results from scanning of subscription ARN for specified channel", nil, false)
-	}
-
-	var subscriptionARN string
-	for _, item := range getSubscriptionARNResult.Items {
-		subscriptionARN = item["SubscriptionARN"].(*types.AttributeValueMemberS).Value
-	}
-	if subscriptionARN == "" {
-		errorHandle("could not find ID for specified channel", nil, false)
-	}
-
-	result <- subscriptionARN
 }
 
 func updateChannelEntry(id string, name string, ctx *context.Context, dynamoClient *dynamodb.Client, result chan *dynamodb.UpdateItemOutput) {
@@ -139,9 +103,9 @@ func updateChannelEntry(id string, name string, ctx *context.Context, dynamoClie
 	result <- updateChannelEntryResult
 }
 
-func updateSubscriptionFilter(name string, subscriptionARN string, ctx *context.Context, snsClient *sns.Client, result chan *sns.SetSubscriptionAttributesOutput) {
+func updateSubscriptionFilter(id string, subscriptionARN string, ctx *context.Context, snsClient *sns.Client, result chan *sns.SetSubscriptionAttributesOutput) {
 	rawFilter := map[string]interface{}{
-		"channel": []string{name},
+		"channel": []string{id},
 	}
 	filter := cleanSelfMadeJson(rawFilter)
 
@@ -162,11 +126,6 @@ func ChangeChannelName(ctx context.Context, channel string, newName string, cfg 
 	var snsClient *sns.Client = sns.NewFromConfig(*cfg)
 	// var lambdaClient *lambdaService.Client = lambdaService.NewFromConfig(*cfg)
 
-	// Get ID of channel.
-	getChannelIDChannel := make(chan string)
-	go getChannelID(channel, &ctx, dynamoClient, getChannelIDChannel)
-	channelID := <-getChannelIDChannel
-
 	// Get the channel's subscription ARN.
 	getSubscriptionARNChannel := make(chan string)
 	go getSubscriptionARN(channel, &ctx, dynamoClient, getSubscriptionARNChannel)
@@ -174,7 +133,7 @@ func ChangeChannelName(ctx context.Context, channel string, newName string, cfg 
 
 	// Update channel's entry in MetaChannelTable.
 	updateChannelEntryChannel := make(chan *dynamodb.UpdateItemOutput)
-	go updateChannelEntry(channelID, newName, &ctx, dynamoClient, updateChannelEntryChannel)
+	go updateChannelEntry(channel, newName, &ctx, dynamoClient, updateChannelEntryChannel)
 	<-updateChannelEntryChannel
 
 	// Change the subscription filter policy of the channel's queue to reflect the name change.
