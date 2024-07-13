@@ -75,6 +75,10 @@
     }
 }
 ```
+**Output**
+```json
+nil
+```
 
 
 #### /deleteChannel
