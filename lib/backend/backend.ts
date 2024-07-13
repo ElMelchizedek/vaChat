@@ -216,5 +216,20 @@ export class BackendStack extends cdk.Stack {
             ],
             scope: this,
         });
+
+        // SNS Topic to alert web servers when changes are made to things in the backend that it may not necessarily know about prior.
+        const changesTopic = customSNS.newTopic({
+            name: "changesTopic",
+            fifo: false,
+            scope: this,
+        })
+
+        // Make the changeTopic's ARN a Parameter to be read by the webserver so that i can subscribe to it.
+        const changesTopicARN = customSSM.newGenericParamTopicARN({
+            name: "ChangesTopic",
+            topic: changesTopic,
+            functions: [],
+            scope: this,
+        })
     }
 }

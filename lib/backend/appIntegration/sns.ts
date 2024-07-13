@@ -27,7 +27,7 @@ function prettifyDisplayName(input: string) {
     return capitalisedWords.join(' ');
 }
 
-function newTopic(props: props) {
+export function newTopic(props: props) {
     return new cdk.aws_sns.Topic(props.scope, "id".concat(props.name, "Topic"), {
         topicName: props.name,
         displayName: prettifyDisplayName(props.name),

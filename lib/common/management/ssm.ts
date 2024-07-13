@@ -7,7 +7,7 @@ interface topicProps {
     name: string;
     topic: cdk.aws_sns.Topic;
     functions: aws_go_lambda.GoFunction[];
-    type: string;
+    type?: string;
 }
 
 interface lambdaProps {
@@ -24,7 +24,7 @@ interface otherProps {
 
 export function newGenericParamTopicARN(props: topicProps) {
     const param = new cdk.aws_ssm.StringParameter(props.scope, "idParam".concat(props.name), {
-        parameterName: (props.type == "metaTopic" ? props.type.concat("ARN") : props.type.concat(props.name, "ARN")),
+        parameterName: (props.type == "metaTopic" ? props.type.concat("ARN") : props.type?.concat(props.name, "ARN")),
         stringValue: props.topic!.topicArn,
     })
 

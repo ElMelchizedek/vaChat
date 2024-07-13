@@ -111,7 +111,7 @@ func handler(ctx context.Context, event SQSEvent) error {
 		_, err = dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
 			TableName: &tableName,
 			Item: map[string]types.AttributeValue{
-        "channel":   &types.AttributeValueMemberS{Value: strconv.Itoa(messageChannel)},
+				"channel":   &types.AttributeValueMemberS{Value: messageChannel},
 				"account":   &types.AttributeValueMemberN{Value: strconv.Itoa(messageAccountNum)},
 				"timestamp": &types.AttributeValueMemberN{Value: strconv.Itoa(messageTimeNum)},
 				"content":   &types.AttributeValueMemberS{Value: messageContent},

@@ -1,3 +1,4 @@
+// TO DO: Condense getHandleMessageQueueARN and getChangesTopicARN into one function.
 package main
 
 import (
@@ -20,6 +21,16 @@ import (
 	sqsTypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
+
+// *** STRUCTS *** //
+type Details struct {
+	id              string
+	alias           string
+	tableARN        string
+	queueARN        string
+	topicARN        string
+	subscriptionARN string
+}
 
 // *** UTILITY FUNCTIONS *** //
 // Automates frequent error handling.
@@ -228,28 +239,28 @@ func addEventSourceQueue(queueARN string, lambdaARN string, ctx *context.Context
 	result <- addEventSourceQueueResult
 }
 
-func addEntryMetaChannelTable(entriesMetaChannelTable int, name string, tableARN string, queueARN string, topicARN string, subscriptionARN string, ctx *context.Context,
+func addEntryMetaChannelTable(details Details, ctx *context.Context,
 	dynamoClient *dynamodb.Client, result chan *dynamodb.PutItemOutput) {
 	addEntryMetaChannelTableInput := dynamodb.PutItemInput{
 		TableName: aws.String("MetaChannelTable"),
 		Item: map[string]dynamodbTypes.AttributeValue{
 			"ID": &dynamodbTypes.AttributeValueMemberN{
-				Value: strconv.Itoa(entriesMetaChannelTable),
+				Value: details.id,
 			},
 			"Alias": &dynamodbTypes.AttributeValueMemberS{
-				Value: name,
+				Value: details.alias,
 			},
 			"TableARN": &dynamodbTypes.AttributeValueMemberS{
-				Value: tableARN,
+				Value: details.tableARN,
 			},
 			"QueueARN": &dynamodbTypes.AttributeValueMemberS{
-				Value: queueARN,
+				Value: details.queueARN,
 			},
-			"EndpointTopicARN": &dynamodbTypes.AttributeValueMemberS{
-				Value: topicARN,
+			"TopicARN": &dynamodbTypes.AttributeValueMemberS{
+				Value: details.topicARN,
 			},
 			"SubscriptionARN": &dynamodbTypes.AttributeValueMemberS{
-				Value: subscriptionARN,
+				Value: details.subscriptionARN,
 			},
 		},
 	}
@@ -257,6 +268,41 @@ func addEntryMetaChannelTable(entriesMetaChannelTable int, name string, tableARN
 	addEntryMetaChannelTableResult, err := dynamoClient.PutItem(*ctx, &addEntryMetaChannelTableInput)
 	errorHandle("failed to put new channel's complete info into MetaChannelTable", err, true)
 	result <- addEntryMetaChannelTableResult
+}
+
+func getChangesTopicARN(ctx *context.Context, ssmClient *ssm.Client, result chan *ssm.GetParameterOutput) {
+	getChangesTopicARNInput := ssm.GetParameterInput{
+		Name: aws.String("changesTopicARN"),
+	}
+
+	getChangesTopicARNResult, err := ssmClient.GetParameter(*ctx, &getChangesTopicARNInput)
+	errorHandle("failed to get changesTopic's ARN from parameter", err, true)
+	result <- getChangesTopicARNResult
+}
+
+func notifyChangesTopic(details Details, arn string, ctx *context.Context, snsClient *sns.Client, result chan *sns.PublishOutput) {
+	rawMessage := map[string]interface{}{
+		"type": "createChannel",
+		"details": map[string]interface{}{
+			"ID":              details.id,
+			"Alias":           details.alias,
+			"TableARN":        details.tableARN,
+			"QueueARN":        details.queueARN,
+			"TopicARN":        details.topicARN,
+			"SubscriptionARN": details.subscriptionARN,
+		},
+	}
+
+	message := cleanSelfMadeJson(rawMessage)
+
+	notifyChangesTopicInput := sns.PublishInput{
+		Message:   aws.String(message),
+		TargetArn: aws.String(arn),
+	}
+
+	notifyChangesTopicResult, err := snsClient.Publish(*ctx, &notifyChangesTopicInput)
+	errorHandle("failed to notify changesTopic about the channel creation", err, true)
+	result <- notifyChangesTopicResult
 }
 
 // Main handler function.
@@ -340,21 +386,35 @@ func handleCreateChannelRequest(ctx context.Context, request events.APIGatewayPr
 	<-addEventSourceQueueChannel
 
 	// ENDING
-
 	// Add channel's complete info for all service into the meta channel info table.
+	realDetails := Details{
+		id:              strconv.Itoa(newID),
+		alias:           choiceName,
+		tableARN:        *createTableResult.TableDescription.TableArn,
+		queueARN:        getQueueARNResult.Attributes["QueueArn"],
+		topicARN:        *createTopicResult.TopicArn,
+		subscriptionARN: *subscribeQueueResult.SubscriptionArn,
+	}
+
 	addEntryMetaChannelTableChannel := make(chan *dynamodb.PutItemOutput)
 	go addEntryMetaChannelTable(
-		newID,
-		choiceName,
-		*createTableResult.TableDescription.TableArn,
-		getQueueARNResult.Attributes["QueueArn"],
-		*createTopicResult.TopicArn,
-		*subscribeQueueResult.SubscriptionArn,
+		realDetails,
 		&ctx,
 		dynamoClient,
 		addEntryMetaChannelTableChannel,
 	)
 	<-addEntryMetaChannelTableChannel
+
+	// Get changesTopic ARN.
+	getChangesTopicARNChannel := make(chan *ssm.GetParameterOutput)
+	go getChangesTopicARN(&ctx, ssmClient, getChangesTopicARNChannel)
+	getChangesTopicARNResult := <-getChangesTopicARNChannel
+	changesTopicARN := getChangesTopicARNResult.Parameter.Value
+
+	// Publish a notification to changesTopic to notify all clients that the channel has been created.
+	notifyChangesTopicChannel := make(chan *sns.PublishOutput)
+	notifyChangesTopic(realDetails, *changesTopicARN, &ctx, snsClient, notifyChangesTopicChannel)
+	<-notifyChangesTopicChannel
 
 	// Send a JSON body for the return response from API Gateway to the client webserver with any potentially desired information about the newly created channel.
 	rawReturnBody := map[string]interface{}{
